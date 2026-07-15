@@ -93,6 +93,21 @@ func TestWithTxSmokeTest(t *testing.T) {
 	}
 }
 
+// TestOpenUnknownDriver checks that Open rejects a Driver it does not recognise
+// rather than silently falling back to the SQLite backend.
+func TestOpenUnknownDriver(t *testing.T) {
+	ctx := context.Background()
+
+	s, err := Open(ctx, Config{Driver: Driver("postgres")})
+	if err == nil {
+		_ = s.Close(ctx)
+		t.Fatal("Open with an unknown driver returned nil error, want failure")
+	}
+	if s != nil {
+		t.Errorf("Open with an unknown driver returned a non-nil Store %v, want nil", s)
+	}
+}
+
 // TestSingleton checks that Init installs a store reachable via Client and that
 // a repeat Init is a no-op that leaves the installed store unchanged.
 func TestSingleton(t *testing.T) {
@@ -118,6 +133,22 @@ func TestSingleton(t *testing.T) {
 	}
 	if Client() != first {
 		t.Error("second Init changed the installed store; want it unchanged")
+	}
+}
+
+// TestInitPropagatesOpenError checks that when Open fails, Init records the
+// error and returns it, leaving no store installed for Client to hand out.
+func TestInitPropagatesOpenError(t *testing.T) {
+	ctx := context.Background()
+	resetForTest(ctx)
+	t.Cleanup(func() { resetForTest(ctx) })
+
+	// An unknown driver makes Open fail, exercising the error branch in Init.
+	if err := Init(ctx, Config{Driver: Driver("postgres")}); err == nil {
+		t.Fatal("Init with an unknown driver returned nil error, want failure")
+	}
+	if client != nil {
+		t.Errorf("Init installed a store %v after a failed Open, want none", client)
 	}
 }
 
