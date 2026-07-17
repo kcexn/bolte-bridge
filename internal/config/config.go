@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"strings"
 
-	"bolte-bridge/internal/store"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"bolte-bridge/internal/store"
 )
 
 // envPrefix namespaces every environment variable the bridge reads. A binder

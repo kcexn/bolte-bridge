@@ -5,10 +5,17 @@ formatters:
   # Enable specific formatter.
   # Default: [] (uses standard Go formatting)
   enable:
+    - gci
     - gofmt
     - golines
   # Formatters settings.
-  settings: {}
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+      custom-order: true
   exclusions:
     # Log a warning if an exclusion path is unused.
     # Default: false
