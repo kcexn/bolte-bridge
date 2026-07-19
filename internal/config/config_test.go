@@ -58,7 +58,22 @@ func TestLoadStoreDBPath(t *testing.T) {
 	}
 }
 
+func TestLoadUnknownFlagErrors(t *testing.T) {
+	_, err := Load([]string{"--nope"}, DefaultSections...)
+	if !errors.Is(err, ErrInvalidArguments) {
+		t.Fatalf("Load returned %v, want ErrInvalidArguments", err)
+	}
+}
+
+func TestLoadHelpReturnsErrHelp(t *testing.T) {
+	_, err := Load([]string{"--help"}, DefaultSections...)
+	if !errors.Is(err, ErrHelp) {
+		t.Fatalf("Load returned %v, want ErrHelp", err)
+	}
+}
+
 func TestLoadDBPathValidationErrorAborts(t *testing.T) {
+
 	// An empty db.path is rejected by storeSection's ApplyFunc.
 	_, err := Load([]string{"--db-path", ""}, storeSection)
 	if err == nil {
@@ -187,12 +202,6 @@ func TestLoadEmailPasswordValidationErrorAborts(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "email.password") {
 		t.Errorf("error %q does not mention the offending key email.password", err)
-	}
-}
-
-func TestLoadUnknownFlagErrors(t *testing.T) {
-	if _, err := Load([]string{"--nope"}, DefaultSections...); err == nil {
-		t.Fatal("Load with an unknown flag returned nil error, want non-nil")
 	}
 }
 

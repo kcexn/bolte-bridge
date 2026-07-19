@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -31,6 +32,15 @@ func run() error {
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("bolte-bridge: %v", err)
+		switch {
+		case errors.Is(err, config.ErrHelp):
+			os.Exit(0)
+
+		case errors.Is(err, config.ErrInvalidArguments):
+			os.Exit(1)
+
+		default:
+			log.Fatalf("bolte-bridge: %v", err)
+		}
 	}
 }

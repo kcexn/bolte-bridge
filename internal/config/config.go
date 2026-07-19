@@ -10,7 +10,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -28,6 +30,11 @@ const envPrefix = "BOLTE_BRIDGE"
 // upper-snake form used in the environment: "db.path" and "db-path" both become
 // "DB_PATH", which SetEnvPrefix then prepends with BOLTE_BRIDGE_.
 var envReplacer = strings.NewReplacer(".", "_", "-", "_")
+
+var (
+	ErrHelp             = errors.New("help requested")
+	ErrInvalidArguments = errors.New("invalid arguments")
+)
 
 // Config is the unified configuration for all application components. It is
 // composed of one nested block per concern, each populated by its own section
@@ -55,6 +62,11 @@ type SectionFunc func(b *Binder) (ApplyFunc, error)
 // using the given sections. It binds every section's flags onto a single flag
 // set, parses args, then runs each section's ApplyFunc in order. Flags override
 // environment variables, which override defaults.
+//
+// If the supplied arguments request help (for example, via -h or --help),
+// Load prints the usage message and returns ErrHelp.
+// If argument parsing fails, Load prints the parse error and usage message, then
+// returns ErrInvalidArguments.
 func Load(args []string, sections ...SectionFunc) (*Config, error) {
 	v := viper.New()
 	v.SetEnvPrefix(envPrefix)
@@ -63,6 +75,13 @@ func Load(args []string, sections ...SectionFunc) (*Config, error) {
 	v.SetEnvKeyReplacer(envReplacer)
 
 	fs := pflag.NewFlagSet("bolte-bridge", pflag.ContinueOnError)
+	fs.Usage = func() {
+		_, _ = fmt.Fprintf(fs.Output(), "Bolte Bridge\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Usage:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  bolte-bridge [OPTIONS]\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Options:\n")
+		fs.PrintDefaults()
+	}
 
 	b := &Binder{v: v, fs: fs}
 
@@ -76,7 +95,12 @@ func Load(args []string, sections ...SectionFunc) (*Config, error) {
 	}
 
 	if err := fs.Parse(args); err != nil {
-		return nil, fmt.Errorf("config: parse arguments: %w", err)
+		if err == pflag.ErrHelp {
+			return nil, ErrHelp
+		}
+		fmt.Fprintln(os.Stderr, err)
+		fs.Usage()
+		return nil, ErrInvalidArguments
 	}
 
 	cfg := &Config{}

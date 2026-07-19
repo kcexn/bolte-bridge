@@ -19,3 +19,65 @@ It aims for a seamless experience across both sides:
 
 Bolte Bridge is designed to support the [Melbourne Linux User Group](https://groups.google.com/g/mlug-au)
 mailing list.
+
+## Usage
+
+Build the bridge:
+
+```bash
+go build
+```
+
+This produces the `bolte-bridge` executable in the current directory.
+
+Run the built executable:
+
+```bash
+./bolte-bridge
+```
+
+Alternatively, run the bridge directly with Go:
+
+```bash
+go run .
+```
+
+By default, the bridge creates and uses a SQLite database named
+`bolte-bridge.db` in the current working directory.
+
+### Configuration
+
+The bridge can be configured through either command-line flags or
+environment variables.
+
+Command-line flags take precedence over environment variables, which in
+turn take precedence over built-in defaults.
+
+### Command-line options
+
+| Flag | Description | Default |
+| ---- | ----------- | ------- |
+| `-d`, `--db-path` | Path to the SQLite database. | `bolte-bridge.db` |
+
+### Environment variables
+
+| Variable | Description | Default |
+| ---- | ----------- | ------- |
+| `BOLTE_BRIDGE_DB_PATH` | Path to the SQLite database. | `bolte-bridge.db` |
+
+### Examples
+
+The following examples demonstrate both supported configuration methods.
+
+Use a custom database path:
+
+```bash
+go run . --db-path bridge.db
+```
+
+Or configure the database path through the environment:
+
+```bash
+export BOLTE_BRIDGE_DB_PATH=bridge.db
+go run .
+```
