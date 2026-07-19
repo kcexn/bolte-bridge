@@ -26,6 +26,21 @@ func (b *Binder) StringP(key string, long string, short string, fallback string,
 	b.bind(key, long, fallback)
 }
 
+// String registers a string setting with a --flag but no shorthand. Use it when
+// there is no natural single-letter alias to reserve.
+func (b *Binder) String(key string, long string, fallback string, usage string) {
+	b.StringP(key, long, "", fallback, usage)
+}
+
+// Secret registers a string setting that is resolvable only from the
+// environment (and its default), with no command-line flag. Use it for
+// sensitive values such as passwords, which should not appear in argv where
+// they would be visible in the process table and shell history.
+func (b *Binder) Secret(key string, fallback string) {
+	_ = b.v.BindEnv(key)
+	b.v.SetDefault(key, fallback)
+}
+
 // Viper returns the underlying Viper instance so an ApplyFunc can read resolved
 // values by key (GetString, GetBool, GetInt, GetDuration, ...).
 func (b *Binder) Viper() *viper.Viper {

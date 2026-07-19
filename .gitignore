@@ -1,2 +1,5 @@
+# IDE configurations.
+.vscode/
+
 # Added by goreleaser init:
 dist/

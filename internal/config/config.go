@@ -15,10 +15,11 @@ import (
 	"os"
 	"strings"
 
-	"bolte-bridge/internal/store"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"bolte-bridge/internal/email"
+	"bolte-bridge/internal/store"
 )
 
 // envPrefix namespaces every environment variable the bridge reads. A binder
@@ -41,6 +42,9 @@ var (
 type Config struct {
 	// Store holds the state-store settings.
 	Store store.Config
+
+	// Email holds the email transport client settings.
+	Email email.Config
 }
 
 // ApplyFunc folds a section's resolved values into the shared Config. It runs

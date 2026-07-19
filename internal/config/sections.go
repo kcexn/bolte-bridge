@@ -5,4 +5,5 @@ package config
 // (see storeSection for the shape) and append it here — nothing else changes.
 var DefaultSections = []SectionFunc{
 	storeSection,
+	emailSection,
 }

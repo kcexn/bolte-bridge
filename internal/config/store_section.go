@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+
+	"bolte-bridge/internal/store"
 )
 
 // defaultDBPath is the state database location used when neither --db-path nor
@@ -19,7 +21,12 @@ func storeSection(b *Binder) (ApplyFunc, error) {
 		if path == "" {
 			return errors.New("db.path must not be empty")
 		}
-		cfg.Store.SQLite.Path = path
+
+		cfg.Store = store.Config{
+			SQLite: store.SQLiteConfig{
+				Path: path,
+			},
+		}
 		return nil
 	}, nil
 }
