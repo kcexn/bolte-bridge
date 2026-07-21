@@ -136,4 +136,3 @@ export BOLTE_BRIDGE_EMAIL_SMTP_ADDR=smtp.example.com:587
 export BOLTE_BRIDGE_EMAIL_MAILBOX=Lists/mlug
 go run .
 ```
-
