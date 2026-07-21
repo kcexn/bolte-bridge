@@ -68,6 +68,20 @@ func TestNewEmailClientValidation(t *testing.T) {
 	}
 }
 
+func TestNewClientReturnsClient(t *testing.T) {
+	// NewClient is the exported constructor; a valid Config must yield a non-nil
+	// value satisfying the Client interface, with no error.
+	cfg := validConfig()
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient(%+v) returned error: %v", cfg, err)
+	}
+	if client == nil {
+		t.Fatal("NewClient returned nil client without error")
+	}
+}
+
 func TestNewEmailClientValid(t *testing.T) {
 	cfg := validConfig()
 

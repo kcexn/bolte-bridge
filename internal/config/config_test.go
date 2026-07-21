@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"bolte-bridge/internal/email"
+	"bolte-bridge/internal/matrix"
 )
 
 func TestLoadStoreDBPath(t *testing.T) {
@@ -202,6 +203,132 @@ func TestLoadEmailPasswordValidationErrorAborts(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "email.password") {
 		t.Errorf("error %q does not mention the offending key email.password", err)
+	}
+}
+
+func TestLoadMatrixConfig(t *testing.T) {
+	// The matrix section applies no defaults, so every field is required. The env
+	// case supplies them all; the flag case then overrides the non-secret fields.
+	base := map[string]string{
+		"BOLTE_BRIDGE_MATRIX_HOMESERVER_URL":   "https://matrix.example.org",
+		"BOLTE_BRIDGE_MATRIX_SERVER_NAME":      "matrix.example.org",
+		"BOLTE_BRIDGE_MATRIX_APPSERVICE_ID":    "bolte-bridge",
+		"BOLTE_BRIDGE_MATRIX_AS_TOKEN":         "as-secret",
+		"BOLTE_BRIDGE_MATRIX_HS_TOKEN":         "hs-secret",
+		"BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART": "bolte",
+		"BOLTE_BRIDGE_MATRIX_ROOM_ID":          "!room:matrix.example.org",
+	}
+
+	tests := []struct {
+		name string
+		args []string
+		env  map[string]string
+		want matrix.Config
+	}{
+		{
+			name: "all fields resolved from the environment",
+			env:  base,
+			want: matrix.Config{
+				HomeserverURL:   "https://matrix.example.org",
+				ServerName:      "matrix.example.org",
+				AppServiceID:    "bolte-bridge",
+				ASToken:         "as-secret",
+				HSToken:         "hs-secret",
+				SenderLocalpart: "bolte",
+				RoomID:          "!room:matrix.example.org",
+			},
+		},
+		{
+			name: "flags override the environment for non-secret fields",
+			args: []string{
+				"--matrix-homeserver-url", "https://flag.example.org",
+				"--matrix-server-name", "flag.example.org",
+				"--matrix-appservice-id", "flag-id",
+				"--matrix-sender-localpart", "flagbot",
+				"--matrix-room-id", "!flag:flag.example.org",
+			},
+			env: base,
+			want: matrix.Config{
+				HomeserverURL:   "https://flag.example.org",
+				ServerName:      "flag.example.org",
+				AppServiceID:    "flag-id",
+				ASToken:         "as-secret",
+				HSToken:         "hs-secret",
+				SenderLocalpart: "flagbot",
+				RoomID:          "!flag:flag.example.org",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+
+			cfg, err := Load(tc.args, matrixSection)
+			if err != nil {
+				t.Fatalf("Load returned error: %v", err)
+			}
+			if cfg.Matrix != tc.want {
+				t.Errorf("cfg.Matrix = %+v, want %+v", cfg.Matrix, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadMatrixValidationErrorsAbort(t *testing.T) {
+	// Every matrix field is required, so leaving any one empty must abort Load
+	// with an error naming the offending key. Each case starts from a fully
+	// populated environment and clears exactly one variable; setting it to the
+	// empty string also guards against an ambient value leaking in from the test
+	// host. The env is authoritative for all fields, including the non-secret
+	// ones, so no flags are needed to exercise the validation paths.
+	full := map[string]string{
+		"BOLTE_BRIDGE_MATRIX_HOMESERVER_URL":   "https://matrix.example.org",
+		"BOLTE_BRIDGE_MATRIX_SERVER_NAME":      "matrix.example.org",
+		"BOLTE_BRIDGE_MATRIX_APPSERVICE_ID":    "bolte-bridge",
+		"BOLTE_BRIDGE_MATRIX_AS_TOKEN":         "as-secret",
+		"BOLTE_BRIDGE_MATRIX_HS_TOKEN":         "hs-secret",
+		"BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART": "bolte",
+		"BOLTE_BRIDGE_MATRIX_ROOM_ID":          "!room:matrix.example.org",
+	}
+
+	tests := []struct {
+		name    string
+		empty   string // the env variable to clear
+		wantKey string // the dotted key the error must name
+	}{
+		{"empty homeserver-url", "BOLTE_BRIDGE_MATRIX_HOMESERVER_URL", "matrix.homeserver-url"},
+		{"empty server-name", "BOLTE_BRIDGE_MATRIX_SERVER_NAME", "matrix.server-name"},
+		{"empty appservice-id", "BOLTE_BRIDGE_MATRIX_APPSERVICE_ID", "matrix.appservice-id"},
+		{"empty as-token", "BOLTE_BRIDGE_MATRIX_AS_TOKEN", "matrix.as-token"},
+		{"empty hs-token", "BOLTE_BRIDGE_MATRIX_HS_TOKEN", "matrix.hs-token"},
+		{
+			"empty sender-localpart",
+			"BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART",
+			"matrix.sender-localpart",
+		},
+		{"empty room-id", "BOLTE_BRIDGE_MATRIX_ROOM_ID", "matrix.room-id"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for k, v := range full {
+				if k == tc.empty {
+					v = ""
+				}
+				t.Setenv(k, v)
+			}
+
+			_, err := Load(nil, matrixSection)
+			if err == nil {
+				t.Fatalf("Load with empty %s returned nil error, want non-nil", tc.wantKey)
+			}
+			if !strings.Contains(err.Error(), tc.wantKey) {
+				t.Errorf("error %q does not mention the offending key %s", err, tc.wantKey)
+			}
+		})
 	}
 }
 

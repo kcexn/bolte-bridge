@@ -34,6 +34,3 @@ func (c *emailClient) Send(ctx context.Context, from string, to []string, raw []
 	}
 	return nil
 }
-
-// Compile-time assertion that emailClient satisfies Client.
-var _ Client = (*emailClient)(nil)

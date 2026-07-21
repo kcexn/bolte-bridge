@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/viper"
 
 	"bolte-bridge/internal/email"
+	"bolte-bridge/internal/matrix"
 	"bolte-bridge/internal/store"
 )
 
@@ -45,6 +46,9 @@ type Config struct {
 
 	// Email holds the email transport client settings.
 	Email email.Config
+
+	// Matrix holds the Matrix appservice client settings.
+	Matrix matrix.Config
 }
 
 // ApplyFunc folds a section's resolved values into the shared Config. It runs

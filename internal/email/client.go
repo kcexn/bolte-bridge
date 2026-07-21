@@ -64,6 +64,11 @@ type Client interface {
 	Send(ctx context.Context, from string, to []string, raw []byte) error
 }
 
+// NewClient constructs a Client for the given account.
+func NewClient(cfg Config) (Client, error) {
+	return newEmailClient(cfg)
+}
+
 // emailClient is the IMAP/SMTP-over-TLS implementation of Client. It holds only
 // validated configuration; every operation dials its own connection.
 type emailClient struct {
@@ -90,7 +95,5 @@ func newEmailClient(cfg Config) (*emailClient, error) {
 	return &emailClient{cfg: cfg}, nil
 }
 
-// NewClient constructs a Client for the given account.
-func NewClient(cfg Config) (Client, error) {
-	return newEmailClient(cfg)
-}
+// Compile-time assertion that emailClient satisfies Client.
+var _ Client = (*emailClient)(nil)
