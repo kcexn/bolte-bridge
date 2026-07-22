@@ -48,7 +48,7 @@ type Message struct {
 // correct destination in the target medium.
 type RoutedMessage struct {
 	// --- Message Payload ---
-	Message // The message being routed.
+	Message Message // The message being routed.
 
 	// --- Routing ---
 	To Address // The target-side address to send this message to.
