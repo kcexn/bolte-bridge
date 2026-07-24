@@ -6,4 +6,5 @@ package config
 var DefaultSections = []SectionFunc{
 	storeSection,
 	emailSection,
+	matrixSection,
 }
