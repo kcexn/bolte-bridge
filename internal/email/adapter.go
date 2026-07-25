@@ -43,7 +43,7 @@ func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error)
 	return "", nil
 }
 
-// Commit will durably advance the read cursor to the IMAP UID named by cursor,
+// Commit will durably advance the read cursor to the Message-ID named by cursor,
 // committing every message up to and including it, or everything the preceding
 // Fetch returned when cursor is empty.
 func (a *Adapter) Commit(_ context.Context, _ string) error {
