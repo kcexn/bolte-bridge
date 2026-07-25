@@ -35,16 +35,16 @@ func (m *mockAdapter) Fetch(context.Context) ([]relay.Message, error) {
 	return m.fetched, nil
 }
 
-func (m *mockAdapter) Send(_ context.Context, msg relay.RoutedMessage) error {
+func (m *mockAdapter) Send(_ context.Context, msg relay.RoutedMessage) (string, error) {
 	*m.log = append(*m.log, m.name+".Send")
 	if m.sendErr != nil {
-		return m.sendErr
+		return "", m.sendErr
 	}
 	m.sent = append(m.sent, msg)
-	return nil
+	return m.name + ".id", nil
 }
 
-func (m *mockAdapter) Commit(context.Context) error {
+func (m *mockAdapter) Commit(context.Context, string) error {
 	*m.log = append(*m.log, m.name+".Commit")
 	return m.commitErr
 }

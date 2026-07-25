@@ -24,7 +24,7 @@ func TestProcessNilPublishPanics(t *testing.T) {
 	}()
 
 	e := &RelayEngine{}
-	_ = e.Process(context.Background(), []relay.Message{{}})
+	_, _ = e.Process(context.Background(), []relay.Message{{}})
 }
 
 // Process: the loop-completion branch. Every stage succeeds and each kept
@@ -51,19 +51,27 @@ func TestProcessSuccess(t *testing.T) {
 		},
 	}
 
+	var count int
+	var err error
 	msgs := []relay.Message{{Body: "a"}, {Body: "b"}}
-	if err := e.Process(context.Background(), msgs); err != nil {
+	if count, err = e.Process(context.Background(), msgs); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(published) != 2 {
 		t.Fatalf("published %d messages, want 2", len(published))
 	}
+	if len(published) != count {
+		t.Fatalf("count %d published messages, want count = %d", count, len(published))
+	}
 	if published[0].Message.Body != "a!" || published[0].To.ID != "dst" {
 		t.Fatalf("published[0] = %+v, want sanitized+mapped message", published[0])
 	}
 
-	if err := e.Process(context.Background(), nil); err != nil {
+	if count, err = e.Process(context.Background(), nil); err != nil {
 		t.Fatalf("unexpected error on empty slice: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("count %d published messages, want 0", count)
 	}
 }
 
@@ -80,7 +88,7 @@ func TestProcessFilterError(t *testing.T) {
 		},
 	}
 
-	if err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
+	if _, err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want errBoom", err)
 	}
 }
@@ -103,8 +111,10 @@ func TestProcessFilterDrops(t *testing.T) {
 		},
 	}
 
+	var processed int
+	var err error
 	msgs := []relay.Message{{Body: "drop"}, {Body: "keep"}}
-	if err := e.Process(context.Background(), msgs); err != nil {
+	if processed, err = e.Process(context.Background(), msgs); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(published) != 1 || published[0].Message.Body != "keep" {
@@ -112,6 +122,9 @@ func TestProcessFilterDrops(t *testing.T) {
 	}
 	if !sanitized {
 		t.Fatal("kept message was not sanitized; loop did not continue past the drop")
+	}
+	if processed != 2 {
+		t.Fatalf("processed %d messages, want 2", processed)
 	}
 }
 
@@ -131,7 +144,7 @@ func TestProcessSanitizeError(t *testing.T) {
 		},
 	}
 
-	if err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
+	if _, err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want errBoom", err)
 	}
 }
@@ -146,10 +159,13 @@ func TestProcessMapError(t *testing.T) {
 		Mappers: []MapFunc{func(context.Context, relay.RoutedMessage) (relay.RoutedMessage, error) {
 			return relay.RoutedMessage{}, errBoom
 		}},
-		Publish: func(context.Context, relay.RoutedMessage) error { t.Fatal("Publish ran after map error"); return nil },
+		Publish: func(context.Context, relay.RoutedMessage) error {
+			t.Fatal("Publish ran after map error")
+			return nil
+		},
 	}
 
-	if err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
+	if _, err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want errBoom", err)
 	}
 }
@@ -161,7 +177,7 @@ func TestProcessPublishError(t *testing.T) {
 		Publish: func(context.Context, relay.RoutedMessage) error { return errBoom },
 	}
 
-	if err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
+	if _, err := e.Process(context.Background(), []relay.Message{{}}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want errBoom", err)
 	}
 }

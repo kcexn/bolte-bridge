@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
+
+	"bolte-bridge/internal/relay"
 )
 
 // Bridge is the top-level application object for one one-shot run. It owns one
@@ -20,8 +22,20 @@ func NewBridge(emailAdapter Adapter, matrixAdapter Adapter) *Bridge {
 	return &Bridge{
 		emailAdapter:  emailAdapter,
 		matrixAdapter: matrixAdapter,
-		emailEngine:   &RelayEngine{Publish: matrixAdapter.Send},
-		matrixEngine:  &RelayEngine{Publish: emailAdapter.Send},
+		emailEngine: &RelayEngine{
+			Publish: func(ctx context.Context, msg relay.RoutedMessage) error {
+				_, err := matrixAdapter.Send(ctx, msg)
+				// TODO: Implement the email <-> matrix mapping.
+				return err
+			},
+		},
+		matrixEngine: &RelayEngine{
+			Publish: func(ctx context.Context, msg relay.RoutedMessage) error {
+				_, err := emailAdapter.Send(ctx, msg)
+				// TODO: Implement the email <-> matrix mapping.
+				return err
+			},
+		},
 	}
 }
 
@@ -37,17 +51,19 @@ func (b *Bridge) Run(ctx context.Context) error {
 }
 
 // relayOnce drives one direction. It fetches everything pending from src, runs
-// it through engine, then commits src's read cursor. Commit runs solely on the
-// success path.
+// it through engine, then commits src's read cursor.
 func relayOnce(ctx context.Context, src Adapter, engine *RelayEngine) error {
 	msgs, err := src.Fetch(ctx)
 	if err != nil {
 		return fmt.Errorf("fetch: %w", err)
 	}
-	if err := engine.Process(ctx, msgs); err != nil {
+	if _, err := engine.Process(ctx, msgs); err != nil {
 		return fmt.Errorf("process: %w", err)
 	}
-	if err := src.Commit(ctx); err != nil {
+	// TODO: Get the message ID of the last published message in
+	// the msgs slice from the count returned by Process. Then
+	// commit it.
+	if err := src.Commit(ctx, ""); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
 	return nil

@@ -7,34 +7,26 @@ import (
 )
 
 // FilterFunc reports whether a message should continue through the pipeline.
-// Returning keep=false drops the message silently — this is where loop
-// prevention lives: the bridge's own traffic must never be re-bridged. An
-// error, by contrast, aborts the whole tick so nothing is committed and the
-// messages replay on the next run.
+// Returning keep=false drops the message silently. An error aborts the rest
+// of the tick so nothing more is committed.
 type FilterFunc func(ctx context.Context, msg relay.Message) (keep bool, err error)
 
 // SanitizeFunc transforms a message's content as it moves through the
-// pipeline — normalizing the body, stripping list footers or quoted
-// signatures, and the like. Sanitizers are chained: each receives the output
+// pipeline. Sanitizers are chained: each receives the output
 // of the previous one, so ordering is significant.
 type SanitizeFunc func(ctx context.Context, msg relay.Message) (relay.Message, error)
 
-// MapFunc folds a medium-agnostic Message toward a fully-addressed
-// RoutedMessage — resolving the target-side identity via the state store,
-// setting the destination Address, and correlating threads. Mappers are
+// MapFunc folds a Message toward a fully-addressed RoutedMessage. Mappers are
 // chained: the first receives the sanitized Message wrapped in a zero-valued
 // RoutedMessage, and each subsequent mapper refines that result.
 type MapFunc func(ctx context.Context, rm relay.RoutedMessage) (relay.RoutedMessage, error)
 
-// PublishFunc is the terminal sink of the pipeline: it delivers one
-// fully-routed message into the target medium, typically by calling an
-// Adapter's Send.
+// PublishFunc is the terminal sink of the pipeline. It delivers one
+// fully-routed message into the target medium.
 type PublishFunc func(ctx context.Context, rm relay.RoutedMessage) error
 
 // RelayEngine is a configurable message-processing pipeline. Each stage is
 // parameterized as a slice (or, for the terminal sink, a single func).
-// Construct one per direction (room→list, list→room) with stages
-// appropriate to that flow.
 type RelayEngine struct {
 	// Filters gate messages into the pipeline. Every filter must return
 	// keep=true for a message to proceed; the first keep=false drops it.
@@ -53,16 +45,18 @@ type RelayEngine struct {
 }
 
 // Process runs msgs one at a time through the pipeline in order: filters,
-// sanitizers, mappers, publish.
-func (e *RelayEngine) Process(ctx context.Context, msgs []relay.Message) error {
+// sanitizers, mappers, publish. Process returns the number of messages
+// processed before an error was encountered or the total number of
+// messages if there was no error.
+func (e *RelayEngine) Process(ctx context.Context, msgs []relay.Message) (int, error) {
 	if e.Publish == nil {
 		panic("core: RelayEngine.Process called with nil Publish")
 	}
 
-	for _, msg := range msgs {
+	for processed, msg := range msgs {
 		keep, err := e.filter(ctx, msg)
 		if err != nil {
-			return err
+			return processed, err
 		}
 		if !keep {
 			continue
@@ -70,20 +64,20 @@ func (e *RelayEngine) Process(ctx context.Context, msgs []relay.Message) error {
 
 		msg, err = e.sanitize(ctx, msg)
 		if err != nil {
-			return err
+			return processed, err
 		}
 
 		routed, err := e.mapMessage(ctx, msg)
 		if err != nil {
-			return err
+			return processed, err
 		}
 
-		if err := e.Publish(ctx, routed); err != nil {
-			return err
+		if err = e.Publish(ctx, routed); err != nil {
+			return processed, err
 		}
 	}
 
-	return nil
+	return len(msgs), nil
 }
 
 // filter consults every filter in order, returning keep=false as soon as one
