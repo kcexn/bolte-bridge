@@ -75,3 +75,10 @@ func TestAdapterClose(t *testing.T) {
 		t.Fatal("client.Close was not called")
 	}
 }
+
+func TestNewAdapterInvalidConfig(t *testing.T) {
+	_, err := NewAdapter(context.Background(), Config{})
+	if err == nil {
+		t.Fatal("NewAdapter() error = nil, want validation error")
+	}
+}
