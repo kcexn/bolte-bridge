@@ -112,6 +112,9 @@ type Client interface {
 	// is registered and joined first. It is called once per message and reports
 	// the outcome of this message alone; it does not batch.
 	Send(ctx context.Context, msg OutboundEvent) error
+
+	// Safely close the Matrix client.
+	Close(ctx context.Context) error
 }
 
 // NewClient constructs a Client for the given appservice account.
@@ -125,6 +128,11 @@ func NewClient(ctx context.Context, cfg Config) (Client, error) {
 type matrixClient struct {
 	cfg Config
 	as  *appservice.AppService
+}
+
+// Close safely closes the Matrix client.
+func (c *matrixClient) Close(_ context.Context) error {
+	return nil
 }
 
 // validate reports the first required field left unset on the Config.
