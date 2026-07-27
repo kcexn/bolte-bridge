@@ -16,7 +16,7 @@ func validConfig() Config {
 	}
 }
 
-func TestNewEmailClientValidation(t *testing.T) {
+func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		mutate  func(*Config)
@@ -47,6 +47,11 @@ func TestNewEmailClientValidation(t *testing.T) {
 			mutate:  func(c *Config) { c.Mailbox = "" },
 			wantErr: "email: Config.Mailbox is required",
 		},
+		{
+			name:    "all fields valid",
+			mutate:  func(c *Config) {},
+			wantErr: "",
+		},
 	}
 
 	for _, tc := range tests {
@@ -54,45 +59,18 @@ func TestNewEmailClientValidation(t *testing.T) {
 			cfg := validConfig()
 			tc.mutate(&cfg)
 
-			client, err := newEmailClient(cfg)
+			err := validateConfig(cfg)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Errorf("validateConfig(%+v) = %v; want nil", cfg, err)
+				}
+				return
+			}
 			if err == nil {
-				t.Fatalf("newEmailClient(%+v) = %v, nil; want error %q", cfg, client, tc.wantErr)
-			}
-			if got := err.Error(); got != tc.wantErr {
-				t.Errorf("newEmailClient error = %q, want %q", got, tc.wantErr)
-			}
-			if client != nil {
-				t.Errorf("newEmailClient returned non-nil client %v alongside error", client)
+				t.Errorf("validateConfig(%+v) = nil; want error %q", cfg, tc.wantErr)
+			} else if got := err.Error(); got != tc.wantErr {
+				t.Errorf("validateConfig error = %q, want %q", got, tc.wantErr)
 			}
 		})
-	}
-}
-
-func TestNewClientReturnsClient(t *testing.T) {
-	// NewClient is the exported constructor; a valid Config must yield a non-nil
-	// value satisfying the Client interface, with no error.
-	cfg := validConfig()
-
-	client, err := NewClient(cfg)
-	if err != nil {
-		t.Fatalf("NewClient(%+v) returned error: %v", cfg, err)
-	}
-	if client == nil {
-		t.Fatal("NewClient returned nil client without error")
-	}
-}
-
-func TestNewEmailClientValid(t *testing.T) {
-	cfg := validConfig()
-
-	client, err := newEmailClient(cfg)
-	if err != nil {
-		t.Fatalf("newEmailClient(%+v) returned error: %v", cfg, err)
-	}
-	if client == nil {
-		t.Fatal("newEmailClient returned nil client without error")
-	}
-	if client.cfg != cfg {
-		t.Errorf("client.cfg = %+v, want %+v", client.cfg, cfg)
 	}
 }

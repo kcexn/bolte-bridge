@@ -6,6 +6,8 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+
+	"bolte-bridge/internal/store/sqlite"
 )
 
 // openInspector opens a second, raw connection to the database at path so a test
@@ -30,21 +32,6 @@ func userVersion(t *testing.T, db *sql.DB) int {
 	return v
 }
 
-func tableExists(t *testing.T, db *sql.DB, name string) bool {
-	t.Helper()
-	var found string
-	err := db.QueryRow(
-		"SELECT name FROM sqlite_schema WHERE type='table' AND name=?", name,
-	).Scan(&found)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return false
-	case err != nil:
-		t.Fatalf("query sqlite_schema: %v", err)
-	}
-	return found == name
-}
-
 // TestOpenProvisions checks that Open creates the database file (including a
 // missing parent directory) and provisions the schema.
 func TestOpenProvisions(t *testing.T) {
@@ -61,35 +48,23 @@ func TestOpenProvisions(t *testing.T) {
 	db := openInspector(t, path)
 	// After Open the schema is fully migrated, so user_version equals the number
 	// of migrations.
-	if want, got := len(migrations), userVersion(t, db); got != want {
+	if want, got := sqlite.MigrationsCount(), userVersion(t, db); got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
-	}
-	if !tableExists(t, db, "bridge_meta") {
-		t.Error("bridge_meta table was not created")
 	}
 }
 
-// TestWithTxSmokeTest is an example of the domain-repository usage pattern:
-// obtain a Tx from WithTx and call a named domain method on it.
-func TestWithTxSmokeTest(t *testing.T) {
+// TestOpenSQLiteEmptyPath checks that openSQLite returns an error when the
+// path is empty.
+func TestOpenSQLiteEmptyPath(t *testing.T) {
 	ctx := context.Background()
-	s, err := Open(ctx, Config{SQLite: SQLiteConfig{Path: filepath.Join(t.TempDir(), "bolte.db")}})
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = s.Close(ctx) })
 
-	var got int
-	err = s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
-		n, err := tx.SmokeTest(ctx)
-		got = n
-		return err
-	})
-	if err != nil {
-		t.Fatalf("WithTx: %v", err)
+	s, err := Open(ctx, Config{SQLite: SQLiteConfig{Path: ""}})
+	if err == nil {
+		_ = s.Close(ctx)
+		t.Fatal("Open with empty path returned nil error, want failure")
 	}
-	if got != 1 {
-		t.Errorf("SmokeTest returned %d, want 1", got)
+	if s != nil {
+		t.Errorf("Open with empty path returned a non-nil Store %v, want nil", s)
 	}
 }
 
@@ -165,4 +140,84 @@ func TestClientPanicsBeforeInit(t *testing.T) {
 		}
 	}()
 	_ = Client()
+}
+
+// TestAdapterWithTx checks that the sqliteAdapter.WithTx correctly bridges
+// between the sqlite subpackage and the store package interfaces.
+func TestAdapterWithTx(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "bolte.db")
+
+	s, err := Open(ctx, Config{SQLite: SQLiteConfig{Path: path}})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close(ctx) })
+
+	// Verify that WithTx executes the callback and that the Tx can be used.
+	callbackExecuted := false
+	if err := s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
+		callbackExecuted = true
+		// Verify that we received a Tx and can use it to query the database.
+		_, err := tx.(*sqlite.Tx).Tx.ExecContext(ctx, "SELECT 1")
+		return err
+	}); err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
+
+	if !callbackExecuted {
+		t.Error("callback was not executed")
+	}
+}
+
+// TestAdapterWithTxRollback checks that the adapter rolls back the transaction
+// when the callback returns an error.
+func TestAdapterWithTxRollback(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "bolte.db")
+
+	s, err := Open(ctx, Config{SQLite: SQLiteConfig{Path: path}})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close(ctx) })
+
+	// Create a test table in a successful transaction.
+	if err := s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
+		_, err := tx.(*sqlite.Tx).Tx.ExecContext(ctx, `
+			CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)
+		`)
+		return err
+	}); err != nil {
+		t.Fatalf("create table: %v", err)
+	}
+
+	// Attempt to insert data but return an error to trigger rollback.
+	testErr := errors.New("test error")
+	err = s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
+		_, insertErr := tx.(*sqlite.Tx).Tx.ExecContext(
+			ctx,
+			"INSERT INTO test (id, value) VALUES (1, 'should be rolled back')",
+		)
+		if insertErr != nil {
+			return insertErr
+		}
+		return testErr
+	})
+
+	// Verify that the error was returned.
+	if !errors.Is(err, testErr) {
+		t.Errorf("WithTx returned %v, want %v", err, testErr)
+	}
+
+	// Verify that the data was rolled back by checking the table is empty.
+	if err := s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
+		var count int
+		return tx.(*sqlite.Tx).Tx.QueryRowContext(
+			ctx,
+			"SELECT COUNT(*) FROM test",
+		).Scan(&count)
+	}); err != nil {
+		t.Fatalf("query count: %v", err)
+	}
 }

@@ -26,18 +26,23 @@ type Store interface {
 	Close(ctx context.Context) error
 }
 
+// TxEmail is the repository interface for email related data.
+type TxEmail interface {
+	// Cursor returns the current UID and UIDValidity values of the
+	// local IMAP client for the given account and mailbox.
+	Cursor(ctx context.Context, username, mailbox string) (uint32, uint32, error)
+	// SetCursor updates the current UID and UIDValidity values of the local
+	// IMAP client for the given account and mailbox.
+	SetCursor(ctx context.Context, username, mailbox string, uid uint32, uidValidity uint32) error
+}
+
 // Tx is the transactional surface of the domain repository. Each method runs its
 // SQL against the transaction it belongs to; callers obtain a Tx from
 // Store.WithTx and never construct one. Domain methods are added here
 // as they are needed.
 type Tx interface {
-	// SmokeTest is a placeholder domain method used to prove the
-	// Store → Tx → SQL wiring end to end and to demonstrate the repository
-	// pattern: the caller invokes a named method and the SQL stays inside it.
-	// It executes `SELECT 1` on the transaction and returns 1. It carries no
-	// business meaning and is expected to be removed once real domain methods
-	// exist.
-	SmokeTest(ctx context.Context) (int, error)
+	// TxEmail is the repository interface for email related data.
+	TxEmail
 }
 
 // Driver identifies which database backend backs a Store.

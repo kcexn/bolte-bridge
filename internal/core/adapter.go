@@ -31,4 +31,7 @@ type Adapter interface {
 	// committing every message up to and including cursor. An empty cursor
 	// commits everything up to the last message returned by the preceding Fetch.
 	Commit(ctx context.Context, cursor string) error
+
+	// Safely closes any resources that the Adapter manages.
+	Close(ctx context.Context) error
 }

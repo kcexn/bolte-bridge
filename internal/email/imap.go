@@ -9,10 +9,10 @@ import (
 	"github.com/emersion/go-imap/v2/imapclient"
 )
 
-// searchSince returns the UIDs strictly greater than sinceUID.
-func searchSince(client *imapclient.Client, sinceUID uint32) ([]imap.UID, error) {
+// searchSince returns the UIDs greater than or equal to startUID.
+func searchSince(client *imapclient.Client, startUID uint32) ([]imap.UID, error) {
 	var set imap.UIDSet
-	set.AddRange(imap.UID(sinceUID+1), 0) // stop 0 means "*", the highest UID
+	set.AddRange(imap.UID(startUID), 0) // stop 0 means "*", the highest UID
 
 	criteria := &imap.SearchCriteria{UID: []imap.UIDSet{set}}
 	data, err := client.UIDSearch(criteria, nil).Wait()
@@ -59,27 +59,15 @@ func fetchUIDs(
 	return msgs, nil
 }
 
-func (c *emailClient) Fetch(ctx context.Context, sinceUID uint32) ([]RawMessage, error) {
+func (c *emailClient) Fetch(ctx context.Context, startUID uint32) ([]RawMessage, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	client, err := imapclient.DialTLS(c.cfg.IMAPAddr, nil)
-	if err != nil {
-		return nil, fmt.Errorf("email: dial IMAP %s: %w", c.cfg.IMAPAddr, err)
-	}
-	defer func() { _ = client.Close() }()
+	client := c.mbox.Client
+	uidValidity := c.mbox.SelectData.UIDValidity
 
-	if err := client.Login(c.cfg.Username, c.cfg.Password).Wait(); err != nil {
-		return nil, fmt.Errorf("email: IMAP login: %w", err)
-	}
-
-	mbox, err := client.Select(c.cfg.Mailbox, nil).Wait()
-	if err != nil {
-		return nil, fmt.Errorf("email: select mailbox %q: %w", c.cfg.Mailbox, err)
-	}
-
-	uids, err := searchSince(client, sinceUID)
+	uids, err := searchSince(client, startUID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,13 +75,10 @@ func (c *emailClient) Fetch(ctx context.Context, sinceUID uint32) ([]RawMessage,
 		return nil, nil
 	}
 
-	msgs, err := fetchUIDs(client, uids, mbox.UIDValidity)
+	msgs, err := fetchUIDs(client, uids, uidValidity)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := client.Logout().Wait(); err != nil {
-		return nil, fmt.Errorf("email: IMAP logout: %w", err)
-	}
 	return msgs, nil
 }

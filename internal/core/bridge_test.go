@@ -49,6 +49,10 @@ func (m *mockAdapter) Commit(context.Context, string) error {
 	return m.commitErr
 }
 
+func (m *mockAdapter) Close(context.Context) error {
+	return nil
+}
+
 // newAdapters wires an email and a matrix mock adapter to share one call log,
 // so tests can assert the exact interleaving of calls across both directions.
 func newAdapters() (email, matrix *mockAdapter, log *[]string) {
