@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -35,11 +36,18 @@ func (a *Adapter) fetchMessages(ctx context.Context, startUID uint32) ([]relay.M
 	if err != nil {
 		return nil, err
 	}
-	messages, msgIDToUID, err := rawMessagesToRelayMessages(rawMessages)
+
+	messages, err := rawMessagesToRelayMessages(rawMessages)
+	if err != nil {
+		return nil, err
+	}
+
+	msgIDToUID, err := makeIDToUIDMap(rawMessages, messages)
 	if err != nil {
 		return nil, err
 	}
 	a.msgIDToUID = msgIDToUID
+
 	return messages, nil
 }
 
@@ -65,18 +73,18 @@ func (a *Adapter) setCursor(ctx context.Context, uid, uidValidity uint32) error 
 // returning both the messages and a msgIDToUID map for cursor tracking.
 func rawMessagesToRelayMessages(
 	rawMessages []RawMessage,
-) ([]relay.Message, map[string]uint32, error) {
+) ([]relay.Message, error) {
 	messages := make([]relay.Message, len(rawMessages))
-	msgIDToUID := make(map[string]uint32, len(rawMessages))
+
 	for i, raw := range rawMessages {
 		msg, err := rawMessageToRelayMessage(raw)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		messages[i] = msg
-		msgIDToUID[msg.MessageID] = raw.UID
+
 	}
-	return messages, msgIDToUID, nil
+	return messages, nil
 }
 
 // rawMessageToRelayMessage parses a raw RFC 822 message and converts it to a relay.Message.
@@ -191,4 +199,19 @@ func extractPlainTextBody(msg *mail.Message) (string, error) {
 	}
 
 	return plainTextBody, nil
+}
+
+func makeIDToUIDMap(
+	rawMessages []RawMessage,
+	relayMessages []relay.Message,
+) (map[string]uint32, error) {
+	if len(rawMessages) != len(relayMessages) {
+		return nil, fmt.Errorf("email: makeIDToUIDMap: length of raw and relay messages differ")
+	}
+	msgIDToUID := make(map[string]uint32, len(rawMessages))
+	for i, msg := range relayMessages {
+		raw := rawMessages[i]
+		msgIDToUID[msg.MessageID] = raw.UID
+	}
+	return msgIDToUID, nil
 }

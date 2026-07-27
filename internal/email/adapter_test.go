@@ -240,24 +240,13 @@ func TestRawMessagesToRelayMessages(t *testing.T) {
 		},
 	}
 
-	messages, msgIDToUID, err := rawMessagesToRelayMessages(raws)
+	messages, err := rawMessagesToRelayMessages(raws)
 	if err != nil {
 		t.Fatalf("rawMessagesToRelayMessages: %v", err)
 	}
 
 	if len(messages) != 2 {
 		t.Errorf("got %d messages, want 2", len(messages))
-	}
-
-	if len(msgIDToUID) != 2 {
-		t.Errorf("got %d map entries, want 2", len(msgIDToUID))
-	}
-
-	if msgIDToUID["<msg1@example.com>"] != 1 {
-		t.Errorf("msgIDToUID[msg1] = %d, want 1", msgIDToUID["<msg1@example.com>"])
-	}
-	if msgIDToUID["<msg2@example.com>"] != 2 {
-		t.Errorf("msgIDToUID[msg2] = %d, want 2", msgIDToUID["<msg2@example.com>"])
 	}
 
 	if messages[0].Sender.Address.ID != "alice@example.com" {
@@ -653,5 +642,151 @@ func TestRawMessageToRelayMessageBodyError(t *testing.T) {
 	}
 	if msg.MessageID != "" {
 		t.Errorf("on error, should return zero-value Message, got %v", msg)
+	}
+}
+
+// TestMakeIDToUIDMapSuccess tests the success path with various slice sizes.
+func TestMakeIDToUIDMapSuccess(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawCount int
+		relayMsg []relay.Message
+	}{
+		{
+			name:     "empty slices",
+			rawCount: 0,
+			relayMsg: []relay.Message{},
+		},
+		{
+			name:     "single message",
+			rawCount: 1,
+			relayMsg: []relay.Message{
+				{MessageID: "<msg1@example.com>"},
+			},
+		},
+		{
+			name:     "multiple messages",
+			rawCount: 3,
+			relayMsg: []relay.Message{
+				{MessageID: "<msg1@example.com>"},
+				{MessageID: "<msg2@example.com>"},
+				{MessageID: "<msg3@example.com>"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawMessages := make([]RawMessage, tt.rawCount)
+			for i := 0; i < tt.rawCount; i++ {
+				rawMessages[i] = RawMessage{UID: uint32(i + 10)}
+			}
+
+			result, err := makeIDToUIDMap(rawMessages, tt.relayMsg)
+
+			if err != nil {
+				t.Fatalf("makeIDToUIDMap: %v", err)
+			}
+			if len(result) != tt.rawCount {
+				t.Errorf("map size = %d, want %d", len(result), tt.rawCount)
+			}
+
+			for i, msg := range tt.relayMsg {
+				if result[msg.MessageID] != uint32(i+10) {
+					t.Errorf("result[%s] = %d, want %d", msg.MessageID, result[msg.MessageID], i+10)
+				}
+			}
+		})
+	}
+}
+
+// TestMakeIDToUIDMapLengthMismatch tests the error path when slice lengths differ.
+func TestMakeIDToUIDMapLengthMismatch(t *testing.T) {
+	tests := []struct {
+		name       string
+		rawCount   int
+		relayCount int
+	}{
+		{
+			name:       "more raw messages",
+			rawCount:   3,
+			relayCount: 2,
+		},
+		{
+			name:       "more relay messages",
+			rawCount:   2,
+			relayCount: 3,
+		},
+		{
+			name:       "raw empty relay not",
+			rawCount:   0,
+			relayCount: 1,
+		},
+		{
+			name:       "relay empty raw not",
+			rawCount:   1,
+			relayCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawMessages := make([]RawMessage, tt.rawCount)
+			relayMessages := make([]relay.Message, tt.relayCount)
+
+			result, err := makeIDToUIDMap(rawMessages, relayMessages)
+
+			if err == nil {
+				t.Error("makeIDToUIDMap should return error when lengths differ")
+			}
+			if result != nil {
+				t.Errorf("on error, result should be nil, got %v", result)
+			}
+			if !strings.Contains(err.Error(), "length") {
+				t.Errorf("error message should mention length: %v", err)
+			}
+		})
+	}
+}
+
+// TestFetchMessagesIDToUIDMapError tests that fetchMessages properly propagates
+// errors from makeIDToUIDMap when raw and relay message counts differ.
+func TestFetchMessagesIDToUIDMapError(t *testing.T) {
+	rawMessages := []RawMessage{
+		{
+			UID: 1,
+			Raw: []byte(strings.Join([]string{
+				"From: test@example.com",
+				"Message-ID: <msg1@example.com>",
+				"",
+				"Body",
+			}, "\r\n")),
+		},
+		{
+			UID: 2,
+			Raw: []byte(strings.Join([]string{
+				"From: test2@example.com",
+				"Message-ID: <msg2@example.com>",
+				"",
+				"Body 2",
+			}, "\r\n")),
+		},
+	}
+
+	// Create relay messages with mismatched count (simulating internal inconsistency)
+	relayMessages := []relay.Message{
+		{MessageID: "<msg1@example.com>"},
+		{MessageID: "<msg2@example.com>"},
+		{MessageID: "<msg3@example.com>"}, // Extra message to cause mismatch
+	}
+
+	// Call makeIDToUIDMap with mismatched slices to trigger error path
+	_, err := makeIDToUIDMap(rawMessages, relayMessages)
+
+	if err == nil {
+		t.Error("makeIDToUIDMap should return error when lengths differ")
+	}
+	if !strings.Contains(err.Error(), "length") {
+		t.Errorf("error message should mention length mismatch: %v", err)
 	}
 }
