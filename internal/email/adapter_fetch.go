@@ -48,6 +48,8 @@ func (a *Adapter) fetchMessages(ctx context.Context, startUID uint32) ([]relay.M
 	}
 	a.msgIDToUID = msgIDToUID
 
+	a.uidCursor = rawMessages[len(rawMessages)-1].UID
+
 	return messages, nil
 }
 

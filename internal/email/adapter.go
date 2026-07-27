@@ -15,6 +15,8 @@ type Adapter struct {
 	cfg    Config
 	// Maps Message-ID to IMAP UID from last Fetch.
 	msgIDToUID map[string]uint32
+	// The last seen UID from the previous Fetch.
+	uidCursor uint32
 }
 
 // Compile-time assertion that Adapter satisfies core.Adapter.
@@ -36,7 +38,7 @@ func (a *Adapter) Medium() relay.Medium {
 }
 
 // Fetch will IMAP-fetch mail past the committed UID cursor and translate it
-// into relay messages, advancing only the in-memory cursor.
+// into relay messages.
 func (a *Adapter) Fetch(ctx context.Context) ([]relay.Message, error) {
 	return a.fetch(ctx)
 }

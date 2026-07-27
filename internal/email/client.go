@@ -97,7 +97,7 @@ type emailClient struct {
 var _ Client = (*emailClient)(nil)
 
 // newEmailClient validates cfg and returns a ready emailClient.
-func newEmailClient(ctx context.Context, cfg Config) (*emailClient, error) {
+func newEmailClient(_ context.Context, cfg Config) (*emailClient, error) {
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
 	}
