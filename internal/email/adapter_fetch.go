@@ -165,11 +165,8 @@ func extractPlainTextBody(msg *mail.Message) (string, error) {
 
 	for len(plainTextBody) == 0 {
 		part, err := reader.NextPart()
-		if err != nil && err != io.EOF {
+		if err != nil {
 			return "", err
-		}
-		if err == io.EOF {
-			break
 		}
 
 		partContentType := part.Header.Get("Content-Type")
@@ -183,15 +180,8 @@ func extractPlainTextBody(msg *mail.Message) (string, error) {
 			continue
 		}
 
-		// Prefer text/plain, but fall back to any text/* part if needed.
+		// Find the text/plain part.
 		if partMediaType == "text/plain" {
-			body, err := io.ReadAll(part)
-			if err != nil {
-				return "", err
-			}
-			plainTextBody = string(body)
-		}
-		if plainTextBody == "" && strings.HasPrefix(partMediaType, "text/") {
 			body, err := io.ReadAll(part)
 			if err != nil {
 				return "", err
