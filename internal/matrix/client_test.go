@@ -1,6 +1,7 @@
 package matrix
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -89,5 +90,13 @@ func TestConfigValidateInvalid(t *testing.T) {
 				t.Errorf("validate() error %q is missing the package prefix", err.Error())
 			}
 		})
+	}
+}
+
+func TestMatrixClientClose(t *testing.T) {
+	c := &matrixClient{}
+
+	if err := c.Close(context.Background()); err != nil {
+		t.Fatalf("Close() = %v", err)
 	}
 }
