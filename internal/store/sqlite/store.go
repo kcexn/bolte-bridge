@@ -121,7 +121,7 @@ func (s *Store) WithTx(ctx context.Context, fn func(context.Context, *Tx) error)
 	if err != nil {
 		return fmt.Errorf("store: begin transaction: %w", err)
 	}
-	defer sqlTx.Rollback()
+	defer func() { _ = sqlTx.Rollback() }()
 
 	if err := fn(ctx, &Tx{Tx: sqlTx}); err != nil {
 		return err

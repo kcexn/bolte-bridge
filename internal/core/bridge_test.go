@@ -179,4 +179,3 @@ func TestRunFirstDirectionShortCircuits(t *testing.T) {
 		}
 	}
 }
-
