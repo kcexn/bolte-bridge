@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -82,7 +83,7 @@ func TestRunSuccess(t *testing.T) {
 		"matrix.Fetch", "email.Send", "matrix.Commit",
 		"email.Fetch", "matrix.Send", "email.Commit",
 	}
-	if got := *log; !equal(got, want) {
+	if got := *log; !slices.Equal(got, want) {
 		t.Fatalf("call order = %v, want %v", got, want)
 	}
 	if len(email.sent) != 1 || email.sent[0].Message.Body != "from-room" {
@@ -103,7 +104,7 @@ func TestRunFetchError(t *testing.T) {
 	if err := b.Run(context.Background()); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want errBoom", err)
 	}
-	if got := *log; !equal(got, []string{"matrix.Fetch"}) {
+	if got := *log; !slices.Equal(got, []string{"matrix.Fetch"}) {
 		t.Fatalf("call order = %v, want only the failed fetch", got)
 	}
 }
@@ -119,7 +120,7 @@ func TestRunSendError(t *testing.T) {
 	if err := b.Run(context.Background()); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want errBoom", err)
 	}
-	if got := *log; !equal(got, []string{"matrix.Fetch", "email.Send"}) {
+	if got := *log; !slices.Equal(got, []string{"matrix.Fetch", "email.Send"}) {
 		t.Fatalf("call order = %v, want fetch+send with no commit", got)
 	}
 }
@@ -158,7 +159,7 @@ func TestRunSecondDirectionError(t *testing.T) {
 		"matrix.Fetch", "email.Send", "matrix.Commit", // first direction completes
 		"email.Fetch", // second direction fails at its fetch
 	}
-	if got := *log; !equal(got, want) {
+	if got := *log; !slices.Equal(got, want) {
 		t.Fatalf("call order = %v, want %v", got, want)
 	}
 }
@@ -179,14 +180,3 @@ func TestRunFirstDirectionShortCircuits(t *testing.T) {
 	}
 }
 
-func equal(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}

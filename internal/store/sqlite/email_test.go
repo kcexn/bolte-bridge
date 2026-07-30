@@ -51,9 +51,13 @@ func TestCursor(t *testing.T) {
 	// Retrieve and verify the cursor.
 	var gotUID, gotValidity uint32
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		var e error
-		gotUID, gotValidity, e = tx.Cursor(ctx, username, mailbox)
-		return e
+		uid, validity, err := tx.Cursor(ctx, username, mailbox)
+		if err != nil {
+			return err
+		}
+		gotUID = uid
+		gotValidity = validity
+		return nil
 	}); err != nil {
 		t.Fatalf("Cursor: %v", err)
 	}
@@ -103,9 +107,13 @@ func TestSetCursorInsert(t *testing.T) {
 	// Verify it was inserted.
 	var gotUID, gotValidity uint32
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		var e error
-		gotUID, gotValidity, e = tx.Cursor(ctx, username, mailbox)
-		return e
+		uid, validity, err := tx.Cursor(ctx, username, mailbox)
+		if err != nil {
+			return err
+		}
+		gotUID = uid
+		gotValidity = validity
+		return nil
 	}); err != nil {
 		t.Fatalf("Cursor: %v", err)
 	}
@@ -145,9 +153,13 @@ func TestSetCursorUpdate(t *testing.T) {
 	// Verify the values were updated.
 	var gotUID, gotValidity uint32
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		var e error
-		gotUID, gotValidity, e = tx.Cursor(ctx, username, mailbox)
-		return e
+		uid, validity, err := tx.Cursor(ctx, username, mailbox)
+		if err != nil {
+			return err
+		}
+		gotUID = uid
+		gotValidity = validity
+		return nil
 	}); err != nil {
 		t.Fatalf("Cursor: %v", err)
 	}

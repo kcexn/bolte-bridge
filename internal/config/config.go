@@ -99,7 +99,7 @@ func Load(args []string, sections ...SectionFunc) (*Config, error) {
 	}
 
 	if err := fs.Parse(args); err != nil {
-		if err == pflag.ErrHelp {
+		if errors.Is(err, pflag.ErrHelp) {
 			return nil, ErrHelp
 		}
 		fmt.Fprintln(os.Stderr, err)

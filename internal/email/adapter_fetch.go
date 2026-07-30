@@ -57,9 +57,13 @@ func (a *Adapter) fetchMessages(ctx context.Context, startUID uint32) ([]relay.M
 func (a *Adapter) getCursor(ctx context.Context) (uint32, uint32, error) {
 	var uid, uidValidity uint32
 	err := store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
-		var err error
-		uid, uidValidity, err = tx.Cursor(ctx, a.cfg.Username, a.cfg.Mailbox)
-		return err
+		u, v, err := tx.Cursor(ctx, a.cfg.Username, a.cfg.Mailbox)
+		if err != nil {
+			return err
+		}
+		uid = u
+		uidValidity = v
+		return nil
 	})
 	return uid, uidValidity, err
 }
@@ -163,8 +167,11 @@ func extractPlainTextBody(msg *mail.Message) (string, error) {
 	reader := multipart.NewReader(msg.Body, boundary)
 	var plainTextBody string
 
-	for len(plainTextBody) == 0 {
+	for {
 		part, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		if err != nil {
 			return "", err
 		}
@@ -187,6 +194,7 @@ func extractPlainTextBody(msg *mail.Message) (string, error) {
 				return "", err
 			}
 			plainTextBody = string(body)
+			break
 		}
 	}
 
