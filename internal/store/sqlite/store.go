@@ -116,25 +116,17 @@ type Store struct {
 	db *sql.DB
 }
 
-func (s *Store) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (err error) {
+func (s *Store) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) error {
 	sqlTx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("store: begin transaction: %w", err)
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			_ = sqlTx.Rollback()
-			panic(p)
-		}
-		if err != nil {
-			_ = sqlTx.Rollback()
-		}
-	}()
+	defer func() { _ = sqlTx.Rollback() }()
 
-	if err = fn(ctx, &Tx{Tx: sqlTx}); err != nil {
+	if err := fn(ctx, &Tx{Tx: sqlTx}); err != nil {
 		return err
 	}
-	if err = sqlTx.Commit(); err != nil {
+	if err := sqlTx.Commit(); err != nil {
 		return fmt.Errorf("store: commit transaction: %w", err)
 	}
 	return nil

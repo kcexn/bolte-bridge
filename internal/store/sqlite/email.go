@@ -7,7 +7,7 @@ import (
 
 // Cursor returns the current UID and UIDValidity values of the local IMAP client.
 func (t *Tx) Cursor(ctx context.Context, username, mailbox string) (uint32, uint32, error) {
-	var uid, uidValidity int
+	var uid, uidValidity uint32
 	err := t.Tx.QueryRowContext(
 		ctx,
 		`SELECT last_seen_uid, uid_validity
@@ -19,7 +19,7 @@ func (t *Tx) Cursor(ctx context.Context, username, mailbox string) (uint32, uint
 	if err != nil {
 		return 0, 0, err
 	}
-	return uint32(uid), uint32(uidValidity), nil
+	return uid, uidValidity, nil
 }
 
 // SetCursor updates the current UID and UIDValidity values of the local IMAP client.
