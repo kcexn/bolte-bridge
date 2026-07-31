@@ -97,6 +97,7 @@ Every setting is also readable from the environment, under the
 | `BOLTE_BRIDGE_MATRIX_HS_TOKEN` | Homeserver token (`hs_token`). **Required**, settable only here. | — |
 | `BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART` | Appservice bot user localpart. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_ROOM_ID` | The Matrix room to bridge (`!room:server`). **Required.** | — |
+
 The IMAP endpoint is contacted over implicit TLS and the SMTP endpoint over STARTTLS, so the port you choose should be one the server offers for that scheme.
 
 If you point the bridge at a Gmail account, the password is an
