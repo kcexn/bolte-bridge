@@ -91,15 +91,13 @@ Every setting is also readable from the environment, under the
 | `BOLTE_BRIDGE_EMAIL_SMTP_ADDR` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `BOLTE_BRIDGE_EMAIL_MAILBOX` | IMAP mailbox to fetch from. | `INBOX` |
 | `BOLTE_BRIDGE_MATRIX_HOMESERVER_URL` | Base URL of the homeserver Client-Server API. **Required.** | — |
-| `BOLTE_BRIDGE_MATRIX_SERVER_NAME` | Homeserver server_name. **Required.** | — |
+| `BOLTE_BRIDGE_MATRIX_SERVER_NAME` | Homeserver `server_name`. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_APPSERVICE_ID` | Appservice registration ID. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_AS_TOKEN` | Appservice token (`as_token`). **Required**, settable only here. | — |
 | `BOLTE_BRIDGE_MATRIX_HS_TOKEN` | Homeserver token (`hs_token`). **Required**, settable only here. | — |
 | `BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART` | Appservice bot user localpart. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_ROOM_ID` | The Matrix room to bridge (`!room:server`). **Required.** | — |
-The IMAP endpoint is contacted over implicit TLS and the SMTP endpoint over
-STARTTLS, so the port you choose should be one the server offers for that
-scheme.
+The IMAP endpoint is contacted over implicit TLS and the SMTP endpoint over STARTTLS, so the port you choose should be one the server offers for that scheme.
 
 If you point the bridge at a Gmail account, the password is an
 [app password](https://support.google.com/accounts/answer/185833), not the
