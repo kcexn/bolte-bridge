@@ -35,7 +35,7 @@ func TestCursor(t *testing.T) {
 
 	// Insert test data into imap_cursors table.
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		_, err := tx.Tx.ExecContext(
+		_, err := tx.Email.Tx.ExecContext(
 			ctx,
 			"INSERT INTO imap_cursors (account_id, mailbox_name, last_seen_uid, uid_validity) VALUES (?, ?, ?, ?)",
 			username,
@@ -51,7 +51,7 @@ func TestCursor(t *testing.T) {
 	// Retrieve and verify the cursor.
 	var gotUID, gotValidity uint32
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		uid, validity, err := tx.Cursor(ctx, username, mailbox)
+		uid, validity, err := tx.Email.Cursor(ctx, username, mailbox)
 		if err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func TestCursorNotFound(t *testing.T) {
 
 	// Try to retrieve a cursor that was never inserted.
 	err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		_, _, err := tx.Cursor(ctx, username, mailbox)
+		_, _, err := tx.Email.Cursor(ctx, username, mailbox)
 		return err
 	})
 
@@ -99,7 +99,7 @@ func TestSetCursorInsert(t *testing.T) {
 
 	// Set a cursor that doesn't exist yet.
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		return tx.SetCursor(ctx, username, mailbox, wantUID, wantValidity)
+		return tx.Email.SetCursor(ctx, username, mailbox, wantUID, wantValidity)
 	}); err != nil {
 		t.Fatalf("SetCursor: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestSetCursorInsert(t *testing.T) {
 	// Verify it was inserted.
 	var gotUID, gotValidity uint32
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		uid, validity, err := tx.Cursor(ctx, username, mailbox)
+		uid, validity, err := tx.Email.Cursor(ctx, username, mailbox)
 		if err != nil {
 			return err
 		}
@@ -138,14 +138,14 @@ func TestSetCursorUpdate(t *testing.T) {
 
 	// Insert initial cursor.
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		return tx.SetCursor(ctx, username, mailbox, oldUID, oldValidity)
+		return tx.Email.SetCursor(ctx, username, mailbox, oldUID, oldValidity)
 	}); err != nil {
 		t.Fatalf("SetCursor (initial): %v", err)
 	}
 
 	// Update the cursor.
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		return tx.SetCursor(ctx, username, mailbox, newUID, newValidity)
+		return tx.Email.SetCursor(ctx, username, mailbox, newUID, newValidity)
 	}); err != nil {
 		t.Fatalf("SetCursor (update): %v", err)
 	}
@@ -153,7 +153,7 @@ func TestSetCursorUpdate(t *testing.T) {
 	// Verify the values were updated.
 	var gotUID, gotValidity uint32
 	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
-		uid, validity, err := tx.Cursor(ctx, username, mailbox)
+		uid, validity, err := tx.Email.Cursor(ctx, username, mailbox)
 		if err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ func TestSetCursorFailure(t *testing.T) {
 	// Attempt to set a cursor with the cancelled context.
 	err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
 		// Use the cancelled context for SetCursor instead of the transaction context.
-		return tx.SetCursor(cancelledCtx, username, mailbox, uid, uidValidity)
+		return tx.Email.SetCursor(cancelledCtx, username, mailbox, uid, uidValidity)
 	})
 
 	if err == nil {

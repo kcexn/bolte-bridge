@@ -3,10 +3,13 @@ package matrix
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/appservice"
+	"maunium.net/go/mautrix/id"
 )
 
 // Config holds the homeserver and appservice-registration settings for a
@@ -101,11 +104,14 @@ type OutboundEvent struct {
 // sync; sends post as impersonated ghost users. Advancing the read cursor is
 // the caller's responsibility, not a side effect of Fetch.
 type Client interface {
+	// LastEvent returns the EventID of the last message in the configured
+	// room.
+	LastEvent(ctx context.Context) (string, error)
+
 	// Fetch returns every m.room.message in the configured room that arrived
 	// after the sync token since, oldest first, together with the new
 	// next_batch token to pass as since on the following call. A since of ""
-	// performs an initial sync. Advancing the cursor — persisting next_batch —
-	// remains the caller's job, not a side effect of Fetch.
+	// performs an initial sync.
 	Fetch(ctx context.Context, since string) (events []RawEvent, err error)
 
 	// Send posts one message into msg.RoomID as msg.Sender, ensuring that user
@@ -128,6 +134,41 @@ func NewClient(ctx context.Context, cfg Config) (Client, error) {
 type matrixClient struct {
 	cfg Config
 	as  *appservice.AppService
+}
+
+// Compile-time assertion that matrixClient satisfies Client.
+var _ Client = (*matrixClient)(nil)
+
+func (c *matrixClient) LastEvent(ctx context.Context) (string, error) {
+	filter, err := c.makeRoomFilter()
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.as.BotClient().FullSyncRequest(ctx, mautrix.ReqSync{
+		FilterID: filter,
+	})
+	if err != nil {
+		return "", fmt.Errorf("matrix: sync: %w", err)
+	}
+
+	joined := resp.Rooms.Join[id.RoomID(c.cfg.RoomID)]
+	if joined == nil {
+		return "", fmt.Errorf("matrix: sync: not joined to room %q", c.cfg.RoomID)
+	}
+
+	messages, err := c.as.BotClient().
+		Messages(ctx, id.RoomID(c.cfg.RoomID), resp.NextBatch, "", mautrix.DirectionBackward, nil, 1)
+	if err != nil {
+		return "", err
+	}
+
+	if len(messages.Chunk) == 0 {
+		return "", nil
+	}
+
+	lastEvent := messages.Chunk[len(messages.Chunk)-1].ID
+	return lastEvent.String(), nil
 }
 
 // Close safely closes the Matrix client.
@@ -203,5 +244,22 @@ func ensureJoined(ctx context.Context, as *appservice.AppService, roomID string)
 	return nil
 }
 
-// Compile-time assertion that matrixClient satisfies Client.
-var _ Client = (*matrixClient)(nil)
+// makeRoomFilter serialises a filter restricting a sync to the configured room's
+// m.room.message timeline events, keeping the /sync response small. The JSON is
+// passed inline as the request's filter parameter.
+func (c *matrixClient) makeRoomFilter() (string, error) {
+	roomID := id.RoomID(c.cfg.RoomID)
+	filter := mautrix.Filter{
+		Room: &mautrix.RoomFilter{
+			Rooms: []id.RoomID{roomID},
+			Timeline: &mautrix.FilterPart{
+				Rooms: []id.RoomID{roomID},
+			},
+		},
+	}
+	raw, err := json.Marshal(&filter)
+	if err != nil {
+		return "", fmt.Errorf("matrix: marshal sync filter: %w", err)
+	}
+	return string(raw), nil
+}

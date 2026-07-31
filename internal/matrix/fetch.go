@@ -2,7 +2,6 @@ package matrix
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"time"
@@ -65,26 +64,6 @@ func toRawEvent(evt *event.Event, roomID string) (RawEvent, bool) {
 		re.ReplyTo = rel.GetReplyTo().String()
 	}
 	return re, true
-}
-
-// makeRoomFilter serialises a filter restricting a sync to the configured room's
-// m.room.message timeline events, keeping the /sync response small. The JSON is
-// passed inline as the request's filter parameter.
-func (c *matrixClient) makeRoomFilter() (string, error) {
-	roomID := id.RoomID(c.cfg.RoomID)
-	filter := mautrix.Filter{
-		Room: &mautrix.RoomFilter{
-			Rooms: []id.RoomID{roomID},
-			Timeline: &mautrix.FilterPart{
-				Rooms: []id.RoomID{roomID},
-			},
-		},
-	}
-	raw, err := json.Marshal(&filter)
-	if err != nil {
-		return "", fmt.Errorf("matrix: marshal sync filter: %w", err)
-	}
-	return string(raw), nil
 }
 
 // timelineSince paginates the room timeline backward from the given batch

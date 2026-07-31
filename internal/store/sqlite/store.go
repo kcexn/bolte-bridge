@@ -111,11 +111,13 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// Store is the SQLite-backed implementation of store.Store.
+// Store is the SQLite-backed implementation of the store.Store interface.
 type Store struct {
 	db *sql.DB
 }
 
+// WithTx runs fn inside a single database transaction. It is called by the
+// adapter in the parent store package.
 func (s *Store) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) error {
 	sqlTx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -123,7 +125,7 @@ func (s *Store) WithTx(ctx context.Context, fn func(context.Context, *Tx) error)
 	}
 	defer func() { _ = sqlTx.Rollback() }()
 
-	if err := fn(ctx, &Tx{Tx: sqlTx}); err != nil {
+	if err := fn(ctx, &Tx{Email: &TxEmail{Tx: sqlTx}, Matrix: &TxMatrix{Tx: sqlTx}}); err != nil {
 		return err
 	}
 	if err := sqlTx.Commit(); err != nil {
@@ -136,9 +138,21 @@ func (s *Store) Close(_ context.Context) error {
 	return s.db.Close()
 }
 
-// Tx is the SQLite-backed implementation of store.Tx. It wraps the live *sql.Tx
-// handed to it by WithTx; its methods run their SQL directly against that
-// transaction.
-type Tx struct {
+// TxEmail holds the SQLite connection for email operations.
+type TxEmail struct {
 	Tx *sql.Tx
+}
+
+// TxMatrix holds the SQLite connection for Matrix operations.
+type TxMatrix struct {
+	Tx *sql.Tx
+}
+
+// Tx wraps the live *sql.Tx handed to it by WithTx; its methods run their SQL
+// directly against that transaction. Do not expose this outside the package;
+// it is wrapped by an adapter in the parent store package to implement
+// store.Tx.
+type Tx struct {
+	Email  *TxEmail
+	Matrix *TxMatrix
 }

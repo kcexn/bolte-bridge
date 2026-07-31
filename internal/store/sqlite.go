@@ -25,12 +25,25 @@ func (a *sqliteAdapter) WithTx(
 	fn func(context.Context, Tx) error,
 ) error {
 	return a.store.WithTx(ctx, func(ctx context.Context, tx *sqlite.Tx) error {
-		return fn(ctx, tx)
+		return fn(ctx, &sqliteTxAdapter{tx: tx})
 	})
 }
 
 func (a *sqliteAdapter) Close(ctx context.Context) error {
 	return a.store.Close(ctx)
+}
+
+// sqliteTxAdapter wraps sqlite.Tx to implement the Tx interface.
+type sqliteTxAdapter struct {
+	tx *sqlite.Tx
+}
+
+func (a *sqliteTxAdapter) Email() TxEmail {
+	return a.tx.Email
+}
+
+func (a *sqliteTxAdapter) Matrix() TxMatrix {
+	return a.tx.Matrix
 }
 
 // openSQLite opens (creating and provisioning if necessary) a SQLite-backed
@@ -46,5 +59,8 @@ func openSQLite(ctx context.Context, cfg SQLiteConfig) (Store, error) {
 	return &sqliteAdapter{store: s}, nil
 }
 
-// Compile-time assertion that sqliteAdapter implements Store interface.
-var _ Store = (*sqliteAdapter)(nil)
+// Compile-time assertions.
+var (
+	_ Store = (*sqliteAdapter)(nil)
+	_ Tx    = (*sqliteTxAdapter)(nil)
+)

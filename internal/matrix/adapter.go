@@ -7,14 +7,14 @@ import (
 	"bolte-bridge/internal/relay"
 )
 
-// Adapter is the Matrix medium edge of the bridge. It owns the Client it talks
-// to outright: the transport is an implementation detail of this package, so
-// callers configure the adapter and never name the Client themselves.
-//
-// Its Fetch, Send, and Commit methods are not implemented yet.
+// Adapter is the Matrix medium edge of the bridge.
 type Adapter struct {
 	client Client
+	cfg    Config
 }
+
+// Compile-time assertion that Adapter satisfies core.Adapter.
+var _ core.Adapter = (*Adapter)(nil)
 
 // NewAdapter builds an Adapter and the Client it owns from ctx and cfg,
 // reporting any configuration or initialization error from Client construction.
@@ -34,26 +34,23 @@ func (a *Adapter) Medium() relay.Medium {
 	return relay.MediumMatrix
 }
 
-// Fetch will fetch Matrix events past the committed sync token and translate
+// Fetch will fetch Matrix events past the committed EventID and translate
 // them into relay messages, advancing only the in-memory cursor.
-func (a *Adapter) Fetch(_ context.Context) ([]relay.Message, error) {
-	return nil, nil
+func (a *Adapter) Fetch(ctx context.Context) ([]relay.Message, error) {
+	return a.fetch(ctx)
 }
 
 // Send will translate a routed message into a Matrix event, send it to the
-// configured room, and return the event ID assigned by the homeserver.
+// configured room, and return the EventID assigned by the homeserver.
 func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error) {
 	return "", nil
 }
 
-// Commit will durably advance the Matrix sync token to cursor. An empty cursor
+// Commit will durably advance the Matrix EventID cursor. An empty cursor
 // commits everything returned by the preceding Fetch.
 func (a *Adapter) Commit(_ context.Context, _ string) error {
 	return nil
 }
-
-// Compile-time assertion that Adapter satisfies core.Adapter.
-var _ core.Adapter = (*Adapter)(nil)
 
 // Close closes the underlying Matrix client.
 func (a *Adapter) Close(ctx context.Context) error {
