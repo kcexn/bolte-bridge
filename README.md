@@ -72,7 +72,11 @@ be visible in the process table and in shell history.
 | `--email-imap-addr` | `host:port` of the IMAP endpoint (implicit TLS). | `imap.gmail.com:993` |
 | `--email-smtp-addr` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `--email-mailbox` | IMAP mailbox to fetch from. | `INBOX` |
-
+| `--matrix-homeserver-url` | Base URL of the homeserver Client-Server API (e.g. `https://matrix.org`). **Required.** | — |
+| `--matrix-server-name` | Homeserver server_name (e.g. `matrix.org`). **Required.** | — |
+| `--matrix-appservice-id` | Appservice registration ID. **Required.** | — |
+| `--matrix-sender-localpart` | Appservice bot user localpart. **Required.** | — |
+| `--matrix-room-id` | The Matrix room to bridge (`!room:server`). **Required.** | — |
 ### Environment variables
 
 Every setting is also readable from the environment, under the
@@ -86,7 +90,13 @@ Every setting is also readable from the environment, under the
 | `BOLTE_BRIDGE_EMAIL_IMAP_ADDR` | `host:port` of the IMAP endpoint (implicit TLS). | `imap.gmail.com:993` |
 | `BOLTE_BRIDGE_EMAIL_SMTP_ADDR` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `BOLTE_BRIDGE_EMAIL_MAILBOX` | IMAP mailbox to fetch from. | `INBOX` |
-
+| `BOLTE_BRIDGE_MATRIX_HOMESERVER_URL` | Base URL of the homeserver Client-Server API. **Required.** | — |
+| `BOLTE_BRIDGE_MATRIX_SERVER_NAME` | Homeserver server_name. **Required.** | — |
+| `BOLTE_BRIDGE_MATRIX_APPSERVICE_ID` | Appservice registration ID. **Required.** | — |
+| `BOLTE_BRIDGE_MATRIX_AS_TOKEN` | Appservice token (`as_token`). **Required**, settable only here. | — |
+| `BOLTE_BRIDGE_MATRIX_HS_TOKEN` | Homeserver token (`hs_token`). **Required**, settable only here. | — |
+| `BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART` | Appservice bot user localpart. **Required.** | — |
+| `BOLTE_BRIDGE_MATRIX_ROOM_ID` | The Matrix room to bridge (`!room:server`). **Required.** | — |
 The IMAP endpoint is contacted over implicit TLS and the SMTP endpoint over
 STARTTLS, so the port you choose should be one the server offers for that
 scheme.
