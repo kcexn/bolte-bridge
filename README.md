@@ -70,13 +70,14 @@ be visible in the process table and in shell history.
 | `-d`, `--db-path` | Path to the SQLite database. | `bolte-bridge.db` |
 | `-e`, `--email` | Account name for IMAP/SMTP (the full email address). **Required.** | — |
 | `--email-imap-addr` | `host:port` of the IMAP endpoint (implicit TLS). | `imap.gmail.com:993` |
-| `--email-smtp-addr` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `--email-mailbox` | IMAP mailbox to fetch from. | `INBOX` |
-| `--matrix-homeserver-url` | Base URL of the homeserver Client-Server API (e.g. `https://matrix.org`). **Required.** | — |
-| `--matrix-server-name` | Homeserver server_name (e.g. `matrix.org`). **Required.** | — |
+| `--email-smtp-addr` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `--matrix-appservice-id` | Appservice registration ID. **Required.** | — |
-| `--matrix-sender-localpart` | Appservice bot user localpart. **Required.** | — |
+| `--matrix-homeserver-url` | Base URL of the homeserver Client-Server API (e.g. `https://matrix.org`). **Required.** | — |
 | `--matrix-room-id` | The Matrix room to bridge (`!room:server`). **Required.** | — |
+| `--matrix-sender-localpart` | Appservice bot user localpart. **Required.** | — |
+| `--matrix-server-name` | Homeserver server_name (e.g. `matrix.org`). **Required.** | — |
+
 ### Environment variables
 
 Every setting is also readable from the environment, under the
@@ -86,18 +87,17 @@ Every setting is also readable from the environment, under the
 | ---- | ----------- | ------- |
 | `BOLTE_BRIDGE_DB_PATH` | Path to the SQLite database. | `bolte-bridge.db` |
 | `BOLTE_BRIDGE_EMAIL_ACCOUNT` | Account name for IMAP/SMTP (the full email address). **Required.** | — |
-| `BOLTE_BRIDGE_EMAIL_PASSWORD` | Account password. **Required**, and settable only here. | — |
 | `BOLTE_BRIDGE_EMAIL_IMAP_ADDR` | `host:port` of the IMAP endpoint (implicit TLS). | `imap.gmail.com:993` |
-| `BOLTE_BRIDGE_EMAIL_SMTP_ADDR` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `BOLTE_BRIDGE_EMAIL_MAILBOX` | IMAP mailbox to fetch from. | `INBOX` |
-| `BOLTE_BRIDGE_MATRIX_HOMESERVER_URL` | Base URL of the homeserver Client-Server API. **Required.** | — |
-| `BOLTE_BRIDGE_MATRIX_SERVER_NAME` | Homeserver `server_name`. **Required.** | — |
+| `BOLTE_BRIDGE_EMAIL_PASSWORD` | Account password. **Required**, and settable only here. | — |
+| `BOLTE_BRIDGE_EMAIL_SMTP_ADDR` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
 | `BOLTE_BRIDGE_MATRIX_APPSERVICE_ID` | Appservice registration ID. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_AS_TOKEN` | Appservice token (`as_token`). **Required**, settable only here. | — |
+| `BOLTE_BRIDGE_MATRIX_HOMESERVER_URL` | Base URL of the homeserver Client-Server API. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_HS_TOKEN` | Homeserver token (`hs_token`). **Required**, settable only here. | — |
-| `BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART` | Appservice bot user localpart. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_ROOM_ID` | The Matrix room to bridge (`!room:server`). **Required.** | — |
-
+| `BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART` | Appservice bot user localpart. **Required.** | — |
+| `BOLTE_BRIDGE_MATRIX_SERVER_NAME` | Homeserver `server_name`. **Required.** | — |
 The IMAP endpoint is contacted over implicit TLS and the SMTP endpoint over STARTTLS, so the port you choose should be one the server offers for that scheme.
 
 If you point the bridge at a Gmail account, the password is an
@@ -112,14 +112,31 @@ Run against Gmail with the default endpoints and database:
 
 ```bash
 export BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password>
-go run . --email bridge@example.com
+export BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token>
+export BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token>
+go run . \
+  --email bridge@example.com \
+  --matrix-homeserver-url https://matrix.org \
+  --matrix-server-name matrix.org \
+  --matrix-appservice-id my-bridge \
+  --matrix-sender-localpart bridge-bot \
+  --matrix-room-id "!room:matrix.org"
 ```
 
 Use a custom database path:
 
 ```bash
 export BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password>
-go run . --email bridge@example.com --db-path bridge.db
+export BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token>
+export BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token>
+go run . \
+  --email bridge@example.com \
+  --db-path bridge.db \
+  --matrix-homeserver-url https://matrix.org \
+  --matrix-server-name matrix.org \
+  --matrix-appservice-id my-bridge \
+  --matrix-sender-localpart bridge-bot \
+  --matrix-room-id "!room:matrix.org"
 ```
 
 Point the bridge at a non-Gmail provider, and read from a mailbox other than
@@ -127,11 +144,18 @@ Point the bridge at a non-Gmail provider, and read from a mailbox other than
 
 ```bash
 export BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password>
+export BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token>
+export BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token>
 go run . \
   --email bridge@example.com \
   --email-imap-addr imap.example.com:993 \
   --email-smtp-addr smtp.example.com:587 \
-  --email-mailbox Lists/mlug
+  --email-mailbox Lists/mlug \
+  --matrix-homeserver-url https://matrix.org \
+  --matrix-server-name matrix.org \
+  --matrix-appservice-id my-bridge \
+  --matrix-sender-localpart bridge-bot \
+  --matrix-room-id "!room:matrix.org"
 ```
 
 Or configure everything through the environment:
@@ -143,5 +167,12 @@ export BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password>
 export BOLTE_BRIDGE_EMAIL_IMAP_ADDR=imap.example.com:993
 export BOLTE_BRIDGE_EMAIL_SMTP_ADDR=smtp.example.com:587
 export BOLTE_BRIDGE_EMAIL_MAILBOX=Lists/mlug
+export BOLTE_BRIDGE_MATRIX_HOMESERVER_URL=https://matrix.org
+export BOLTE_BRIDGE_MATRIX_SERVER_NAME=matrix.org
+export BOLTE_BRIDGE_MATRIX_APPSERVICE_ID=my-bridge
+export BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token>
+export BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token>
+export BOLTE_BRIDGE_MATRIX_SENDER_LOCALPART=bridge-bot
+export BOLTE_BRIDGE_MATRIX_ROOM_ID="!room:matrix.org"
 go run .
 ```
