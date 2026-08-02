@@ -16,10 +16,7 @@ func (t *TxEmail) Cursor(ctx context.Context, username, mailbox string) (uint32,
 		username,
 		mailbox,
 	).Scan(&uid, &uidValidity)
-	if err != nil {
-		return 0, 0, err
-	}
-	return uid, uidValidity, nil
+	return uid, uidValidity, err
 }
 
 // SetCursor updates the current UID and UIDValidity values of the local IMAP client.

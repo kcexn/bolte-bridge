@@ -15,10 +15,7 @@ func (t *TxMatrix) Cursor(ctx context.Context, serverName, roomID string) (strin
 		serverName,
 		roomID,
 	).Scan(&eventID)
-	if err != nil {
-		return "", err
-	}
-	return eventID, nil
+	return eventID, err
 }
 
 func (t *TxMatrix) SetCursor(ctx context.Context, serverName, roomID, eventID string) error {
