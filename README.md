@@ -33,23 +33,36 @@ This produces the `bolte-bridge` executable in the current directory.
 Run the built executable:
 
 ```bash
-BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password> ./bolte-bridge --email bridge@example.com
+BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password> \
+BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token> \
+BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token> \
+./bolte-bridge \
+  --email bridge@example.com \
+  --matrix-homeserver-url https://matrix.org \
+  --matrix-server-name matrix.org \
+  --matrix-appservice-id my-bridge \
+  --matrix-sender-localpart bridge-bot \
+  --matrix-room-id '!room:matrix.org'
 ```
 
 Alternatively, run the bridge directly with Go:
 
 ```bash
-BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password> go run . --email bridge@example.com
+BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password> \
+BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token> \
+BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token> \
+go run . \
+  --email bridge@example.com \
+  --matrix-homeserver-url https://matrix.org \
+  --matrix-server-name matrix.org \
+  --matrix-appservice-id my-bridge \
+  --matrix-sender-localpart bridge-bot \
+  --matrix-room-id '!room:matrix.org'
 ```
 
-The bridge signs in to a single mail account, which it uses to read from and
-post to the mailing list. The account address and password are **required**;
-the bridge exits at startup if either is missing. Everything else has a
-default.
+The bridge signs in to a single mail account and connects to a Matrix homeserver, which it uses to bridge messages between the mailing list and a Matrix room. The mail account address, password, and Matrix appservice tokens are **required**; the bridge exits at startup if any of these are missing. Everything else has a default.
 
-By default, the bridge creates and uses a SQLite database named
-`bolte-bridge.db` in the current working directory, and talks to Gmail's
-IMAP and SMTP endpoints.
+By default, the bridge creates and uses a SQLite database named `bolte-bridge.db` in the current working directory, and talks to Gmail's IMAP and SMTP endpoints, alongside the Matrix Client-Server API.
 
 ### Configuration
 
