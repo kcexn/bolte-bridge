@@ -50,14 +50,13 @@ func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error)
 // Commit will durably advance the Matrix EventID cursor. An empty cursor
 // commits everything returned by the preceding Fetch.
 func (a *Adapter) Commit(ctx context.Context, cursor string) error {
-	// If the cursor is empty, we have nothing to save.
 	if cursor == "" {
 		return nil
 	}
 
-	// Grab the global database client and open a transaction bubble
+	// Persist the cursor within a database transaction.
 	return store.Client().WithTx(ctx, func(txCtx context.Context, tx store.Tx) error {
-		return tx.SetMatrixCursor(txCtx, cursor)
+		return tx.Matrix().SetCursor(txCtx, a.cfg.ServerName, a.cfg.RoomID, cursor)
 	})
 }
 
