@@ -49,7 +49,6 @@ func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error)
 
 // Commit will durably advance the Matrix sync token to cursor. An empty cursor
 // commits everything returned by the preceding Fetch.
-// Commit will durably advance the Matrix sync token to cursor.
 func (a *Adapter) Commit(ctx context.Context, cursor string) error {
 	// If the cursor is empty, we have nothing to save.
 	if cursor == "" {
