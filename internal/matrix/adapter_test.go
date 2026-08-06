@@ -235,9 +235,26 @@ func TestAdapterSend(t *testing.T) {
 
 func TestAdapterCommit(t *testing.T) {
 	a := newTestAdapter()
+	ctx := context.Background()
 
-	if err := a.Commit(context.Background(), ""); err != nil {
-		t.Fatalf("Commit() error = %v", err)
+	// 1. Test the empty cursor edge case
+	if err := a.Commit(ctx, ""); err != nil {
+		t.Fatalf("Commit(empty) error = %v", err)
+	}
+
+	// 2. Test a real cursor to trigger the database transaction lines
+	wantEventID := "bbb-event:matrix.org"
+	if err := a.Commit(ctx, wantEventID); err != nil {
+		t.Fatalf("Commit(valid) error = %v", err)
+	}
+
+	// 3. Prove it actually saved to the database
+	gotEventID, err := a.getCursor(ctx)
+	if err != nil {
+		t.Fatalf("getCursor after Commit: %v", err)
+	}
+	if gotEventID != wantEventID {
+		t.Errorf("persisted EventID = %q, want %q", gotEventID, wantEventID)
 	}
 }
 
