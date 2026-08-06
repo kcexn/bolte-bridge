@@ -6,7 +6,7 @@ import (
 )
 
 // Cursor returns the current UID and UIDValidity values of the local IMAP client.
-func (t *Tx) Cursor(ctx context.Context, username, mailbox string) (uint32, uint32, error) {
+func (t *TxEmail) Cursor(ctx context.Context, username, mailbox string) (uint32, uint32, error) {
 	var uid, uidValidity uint32
 	err := t.Tx.QueryRowContext(
 		ctx,
@@ -16,14 +16,11 @@ func (t *Tx) Cursor(ctx context.Context, username, mailbox string) (uint32, uint
 		username,
 		mailbox,
 	).Scan(&uid, &uidValidity)
-	if err != nil {
-		return 0, 0, err
-	}
-	return uid, uidValidity, nil
+	return uid, uidValidity, err
 }
 
 // SetCursor updates the current UID and UIDValidity values of the local IMAP client.
-func (t *Tx) SetCursor(
+func (t *TxEmail) SetCursor(
 	ctx context.Context,
 	username, mailbox string,
 	uid, uidValidity uint32,
@@ -43,7 +40,7 @@ func (t *Tx) SetCursor(
 		uidValidity,
 	)
 	if err != nil {
-		return fmt.Errorf("store: set imap cursor: %w", err)
+		return fmt.Errorf("sqlite: set imap cursor: %w", err)
 	}
 	return nil
 }

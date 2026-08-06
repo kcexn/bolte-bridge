@@ -61,7 +61,7 @@ func TestGetCursor(t *testing.T) {
 	// Seed the cursor through the store directly, so the test exercises only the
 	// read path.
 	err := store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
-		return tx.SetCursor(ctx, a.cfg.Username, a.cfg.Mailbox, wantUID, wantValidity)
+		return tx.Email().SetCursor(ctx, a.cfg.Username, a.cfg.Mailbox, wantUID, wantValidity)
 	})
 	if err != nil {
 		t.Fatalf("seed cursor: %v", err)
@@ -96,7 +96,7 @@ func TestSetCursor(t *testing.T) {
 	var gotUID, gotValidity uint32
 	err := store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
 		var err error
-		gotUID, gotValidity, err = tx.Cursor(ctx, a.cfg.Username, a.cfg.Mailbox)
+		gotUID, gotValidity, err = tx.Email().Cursor(ctx, a.cfg.Username, a.cfg.Mailbox)
 		return err
 	})
 	if err != nil {

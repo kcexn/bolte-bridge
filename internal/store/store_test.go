@@ -159,7 +159,7 @@ func TestAdapterWithTx(t *testing.T) {
 	if err := s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
 		callbackExecuted = true
 		// Verify that we received a Tx and can use it to query the database.
-		_, err := tx.(*sqlite.Tx).Tx.ExecContext(ctx, "SELECT 1")
+		_, err := tx.Email().(*sqlite.TxEmail).Tx.ExecContext(ctx, "SELECT 1")
 		return err
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
@@ -184,7 +184,7 @@ func TestAdapterWithTxRollback(t *testing.T) {
 
 	// Create a test table in a successful transaction.
 	if err := s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
-		_, err := tx.(*sqlite.Tx).Tx.ExecContext(ctx, `
+		_, err := tx.Email().(*sqlite.TxEmail).Tx.ExecContext(ctx, `
 			CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)
 		`)
 		return err
@@ -195,7 +195,7 @@ func TestAdapterWithTxRollback(t *testing.T) {
 	// Attempt to insert data but return an error to trigger rollback.
 	testErr := errors.New("test error")
 	err = s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
-		_, insertErr := tx.(*sqlite.Tx).Tx.ExecContext(
+		_, insertErr := tx.Email().(*sqlite.TxEmail).Tx.ExecContext(
 			ctx,
 			"INSERT INTO test (id, value) VALUES (1, 'should be rolled back')",
 		)
@@ -213,7 +213,7 @@ func TestAdapterWithTxRollback(t *testing.T) {
 	// Verify that the data was rolled back by checking the table is empty.
 	if err := s.WithTx(ctx, func(ctx context.Context, tx Tx) error {
 		var count int
-		return tx.(*sqlite.Tx).Tx.QueryRowContext(
+		return tx.Email().(*sqlite.TxEmail).Tx.QueryRowContext(
 			ctx,
 			"SELECT COUNT(*) FROM test",
 		).Scan(&count)

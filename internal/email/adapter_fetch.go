@@ -57,7 +57,7 @@ func (a *Adapter) fetchMessages(ctx context.Context, startUID uint32) ([]relay.M
 func (a *Adapter) getCursor(ctx context.Context) (uint32, uint32, error) {
 	var uid, uidValidity uint32
 	err := store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
-		u, v, err := tx.Cursor(ctx, a.cfg.Username, a.cfg.Mailbox)
+		u, v, err := tx.Email().Cursor(ctx, a.cfg.Username, a.cfg.Mailbox)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func (a *Adapter) getCursor(ctx context.Context) (uint32, uint32, error) {
 // setCursor durably persists the given UID and UIDValidity to the store.
 func (a *Adapter) setCursor(ctx context.Context, uid, uidValidity uint32) error {
 	return store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
-		return tx.SetCursor(ctx, a.cfg.Username, a.cfg.Mailbox, uid, uidValidity)
+		return tx.Email().SetCursor(ctx, a.cfg.Username, a.cfg.Mailbox, uid, uidValidity)
 	})
 }
 

@@ -11,9 +11,13 @@ CREATE TABLE IF NOT EXISTS imap_cursors (
     PRIMARY KEY (account_id, mailbox_name)
 ) STRICT;
 
--- matrix_cursor keeps track of the last seen EventID for the Matrix room.
-CREATE TABLE IF NOT EXISTS matrix_cursor (
-    client_id  TEXT PRIMARY KEY DEFAULT 'default',
-    sync_token TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- matrix_cursors keeps track of the last seen EventID for every Matrix
+-- room.
+CREATE TABLE IF NOT EXISTS matrix_cursors (
+    server_name     TEXT NOT NULL,
+    room_id         TEXT NOT NULL,
+    last_seen_event TEXT NOT NULL,
+    updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (server_name, room_id)
 ) STRICT;

@@ -5,20 +5,34 @@ import (
 	"fmt"
 )
 
-// SetMatrixCursor updates the current sync token (EventID) for the Matrix client.
-func (t *Tx) SetMatrixCursor(ctx context.Context, cursor string) error {
+func (t *TxMatrix) Cursor(ctx context.Context, serverName, roomID string) (string, error) {
+	var eventID string
+	err := t.Tx.QueryRowContext(
+		ctx,
+		`SELECT last_seen_event
+		 FROM matrix_cursors
+		 WHERE server_name=? AND room_id=?`,
+		serverName,
+		roomID,
+	).Scan(&eventID)
+	return eventID, err
+}
+
+func (t *TxMatrix) SetCursor(ctx context.Context, serverName, roomID, eventID string) error {
 	_, err := t.Tx.ExecContext(
 		ctx,
-		`INSERT INTO matrix_cursor (client_id, sync_token)
-		 VALUES ('default', ?)
-		 ON CONFLICT (client_id)
+		`INSERT INTO matrix_cursors (server_name, room_id, last_seen_event)
+		 VALUES (?, ?, ?)
+		 ON CONFLICT (server_name, room_id)
 		 DO UPDATE SET
-		   sync_token = excluded.sync_token,
+		   last_seen_event = excluded.last_seen_event,
 		   updated_at = CURRENT_TIMESTAMP`,
-		cursor,
+		serverName,
+		roomID,
+		eventID,
 	)
 	if err != nil {
-		return fmt.Errorf("store: set matrix cursor: %w", err)
+		return fmt.Errorf("sqlite: set matrix cursor: %w", err)
 	}
 	return nil
 }

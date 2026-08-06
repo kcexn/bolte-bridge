@@ -33,23 +33,23 @@ type TxEmail interface {
 	Cursor(ctx context.Context, username, mailbox string) (uint32, uint32, error)
 	// SetCursor updates the current UID and UIDValidity values of the local
 	// IMAP client for the given account and mailbox.
-	SetCursor(ctx context.Context, username, mailbox string, uid uint32, uidValidity uint32) error
-}
-
-// Tx is the transactional surface of the domain repository. Each method runs its
-// SQL against the transaction it belongs to; callers obtain a Tx from
-// Store.WithTx and never construct one. Domain methods are added here
-// as they are needed.
-type Tx interface {
-	// TxEmail is the repository interface for email related data.
-	TxEmail
-	// TxMatrix is the repository interface for Matrix related data.
-	TxMatrix
+	SetCursor(ctx context.Context, username, mailbox string, uid, uidValidity uint32) error
 }
 
 // TxMatrix is the repository interface for Matrix related data.
 type TxMatrix interface {
-	SetMatrixCursor(ctx context.Context, cursor string) error
+	// Cursor returns the last processed EventID for the specified room.
+	Cursor(ctx context.Context, serverName, roomID string) (string, error)
+	// SetCursor updates the current committed EventID for the specified room.
+	SetCursor(ctx context.Context, serverName, roomID, eventID string) error
+}
+
+// Tx is the transactional surface of the domain repository.
+type Tx interface {
+	// TxEmail is the repository interface for email related data.
+	Email() TxEmail
+	// TxMatrix is the repository interface for Matrix related data.
+	Matrix() TxMatrix
 }
 
 // Driver identifies which database backend backs a Store.
