@@ -43,6 +43,13 @@ type TxEmail interface {
 type Tx interface {
 	// TxEmail is the repository interface for email related data.
 	TxEmail
+	// TxMatrix is the repository interface for Matrix related data.
+	TxMatrix
+}
+
+// TxMatrix is the repository interface for Matrix related data.
+type TxMatrix interface {
+	SetMatrixCursor(ctx context.Context, cursor string) error
 }
 
 // Driver identifies which database backend backs a Store.
