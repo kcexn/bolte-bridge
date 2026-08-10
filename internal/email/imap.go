@@ -56,14 +56,10 @@ func fetchUIDs(
 		})
 	}
 
-	sortRawMessages(msgs)
-	return msgs, nil
-}
-
-func sortRawMessages(msgs []RawMessage) {
 	slices.SortFunc(msgs, func(a, b RawMessage) int {
 		return cmp.Compare(a.UID, b.UID)
 	})
+	return msgs, nil
 }
 
 func (c *emailClient) Fetch(ctx context.Context, startUID uint32) ([]RawMessage, error) {
