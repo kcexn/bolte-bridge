@@ -1,10 +1,9 @@
 package email
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
+	"sort"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
@@ -56,9 +55,7 @@ func fetchUIDs(
 		})
 	}
 
-	slices.SortFunc(msgs, func(a, b RawMessage) int {
-		return cmp.Compare(a.UID, b.UID)
-	})
+	sort.Slice(msgs, func(i, j int) bool { return msgs[i].UID < msgs[j].UID })
 	return msgs, nil
 }
 
