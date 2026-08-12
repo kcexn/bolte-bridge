@@ -26,6 +26,7 @@ func NewAdapter(ctx context.Context, cfg Config) (*Adapter, error) {
 
 	return &Adapter{
 		client: client,
+		cfg:    cfg,
 	}, nil
 }
 

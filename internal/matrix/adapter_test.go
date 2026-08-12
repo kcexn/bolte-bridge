@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -256,5 +258,26 @@ func TestNewAdapterInvalidConfig(t *testing.T) {
 	_, err := NewAdapter(context.Background(), Config{})
 	if err == nil {
 		t.Fatal("NewAdapter() error = nil, want validation error")
+	}
+}
+
+func TestNewAdapterSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	cfg := validConfig()
+	cfg.HomeserverURL = server.URL
+
+	ctx := context.Background()
+	adapter, err := NewAdapter(ctx, cfg)
+	if err != nil {
+		t.Fatalf("NewAdapter() returned error: %v", err)
+	}
+
+	if adapter.cfg.HomeserverURL != server.URL {
+		t.Errorf("adapter.cfg.HomeserverURL = %q, want %q", adapter.cfg.HomeserverURL, server.URL)
 	}
 }
