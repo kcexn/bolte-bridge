@@ -73,7 +73,7 @@ func rawEventToRelayMessage(raw RawEvent) relay.Message {
 			ID:   raw.Sender,
 		}},
 		MessageID: raw.EventID,
-		ThreadID:  raw.ReplyTo,
+		InReplyTo: raw.InReplyTo,
 		Body:      raw.Body,
 	}
 }

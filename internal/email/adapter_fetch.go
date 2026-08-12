@@ -118,7 +118,7 @@ func rawMessageToRelayMessage(raw RawMessage) (relay.Message, error) {
 	messageID := msg.Header.Get("Message-ID")
 
 	// Extract thread ID from In-Reply-To header.
-	threadID := msg.Header.Get("In-Reply-To")
+	inReplyTo := msg.Header.Get("In-Reply-To")
 
 	// Extract plain text body from the message.
 	body, err := extractPlainTextBody(msg)
@@ -129,7 +129,7 @@ func rawMessageToRelayMessage(raw RawMessage) (relay.Message, error) {
 	return relay.Message{
 		Sender:    sender,
 		MessageID: messageID,
-		ThreadID:  threadID,
+		InReplyTo: inReplyTo,
 		Body:      body,
 	}, nil
 }

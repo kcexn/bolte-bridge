@@ -65,13 +65,9 @@ type RawEvent struct {
 	// MsgType is the m.room.message msgtype (e.g. "m.text").
 	MsgType string
 
-	// ThreadRoot is the event ID of the thread root when the message is part of
-	// a thread (m.relates_to rel_type m.thread), otherwise empty.
-	ThreadRoot string
-
-	// ReplyTo is the event ID this message replies to (m.in_reply_to),
+	// InReplyTo is the event ID this message replies to (m.in_reply_to),
 	// otherwise empty.
-	ReplyTo string
+	InReplyTo string
 
 	// Timestamp is the origin_server_ts the homeserver stamped on the event.
 	Timestamp time.Time

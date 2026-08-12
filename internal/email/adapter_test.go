@@ -6,6 +6,7 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -140,8 +141,8 @@ func TestRawMessageToRelayMessage(t *testing.T) {
 	if msg.MessageID != "<msg123@example.com>" {
 		t.Errorf("message ID = %q, want %q", msg.MessageID, "<msg123@example.com>")
 	}
-	if msg.ThreadID != "<parent@example.com>" {
-		t.Errorf("thread ID = %q, want %q", msg.ThreadID, "<parent@example.com>")
+	if msg.InReplyTo != "<parent@example.com>" {
+		t.Errorf("In reply to = %q, want %q", msg.InReplyTo, "<parent@example.com>")
 	}
 	if !strings.Contains(msg.Body, "Hello, World!") {
 		t.Errorf("body does not contain expected text: %q", msg.Body)
@@ -248,6 +249,7 @@ func TestRawMessagesToRelayMessages(t *testing.T) {
 type mockClient struct {
 	latestUIDFunc func() (uint32, uint32)
 	fetchFunc     func(ctx context.Context, sinceUID uint32) ([]RawMessage, error)
+	sendFunc      func(ctx context.Context, from string, to []string, raw []byte) error
 	closeFunc     func(ctx context.Context) error
 }
 
@@ -266,6 +268,9 @@ func (m *mockClient) Fetch(ctx context.Context, sinceUID uint32) ([]RawMessage, 
 }
 
 func (m *mockClient) Send(ctx context.Context, from string, to []string, raw []byte) error {
+	if m.sendFunc != nil {
+		return m.sendFunc(ctx, from, to, raw)
+	}
 	return nil
 }
 
@@ -775,5 +780,336 @@ func TestFetchMessagesIDToUIDMapError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "length") {
 		t.Errorf("error message should mention length mismatch: %v", err)
+	}
+}
+
+// TestAdapterSend validates that the Send method constructs an RFC 822 message,
+// delegates to the client, and returns the message ID on success.
+func TestAdapterSend(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name       string
+		routedMsg  relay.RoutedMessage
+		clientErr  error
+		shouldFail bool
+	}{
+		{
+			name: "successful send with all fields",
+			routedMsg: relay.RoutedMessage{
+				Message: relay.Message{
+					Sender: relay.Identity{
+						Address: relay.Address{
+							Mode: relay.MediumEmail,
+							ID:   "alice@example.com",
+						},
+						DisplayName: "Alice",
+					},
+					MessageID: "<source-msg@example.com>",
+					InReplyTo: "<thread@example.com>",
+					Subject:   "Test Subject",
+					Body:      "Test body content",
+				},
+				To: relay.Address{Mode: relay.MediumEmail, ID: "list@example.org"},
+			},
+			clientErr:  nil,
+			shouldFail: false,
+		},
+		{
+			name: "successful send with minimal fields",
+			routedMsg: relay.RoutedMessage{
+				Message: relay.Message{
+					Sender: relay.Identity{
+						Address: relay.Address{Mode: relay.MediumEmail, ID: "bob@example.com"},
+					},
+					Subject: "Minimal",
+					Body:    "Minimal body",
+				},
+				To: relay.Address{Mode: relay.MediumEmail, ID: "list@example.org"},
+			},
+			clientErr:  nil,
+			shouldFail: false,
+		},
+		{
+			name: "client send failure",
+			routedMsg: relay.RoutedMessage{
+				Message: relay.Message{
+					Sender: relay.Identity{
+						Address: relay.Address{
+							Mode: relay.MediumEmail,
+							ID:   "charlie@example.com",
+						},
+						DisplayName: "Charlie",
+					},
+					Subject: "Will Fail",
+					Body:    "This send will fail",
+				},
+				To: relay.Address{Mode: relay.MediumEmail, ID: "list@example.org"},
+			},
+			clientErr:  fmt.Errorf("SMTP connection failed"),
+			shouldFail: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validConfig()
+			cfg.Username = "bridge@example.org"
+			clientDomain := "example.org"
+
+			sendCalled := false
+			var capturedFrom string
+			var capturedTo []string
+			var capturedMail []byte
+
+			mock := &mockClient{
+				sendFunc: func(
+					ctx context.Context,
+					from string,
+					to []string,
+					raw []byte,
+				) error {
+					sendCalled = true
+					capturedFrom = from
+					capturedTo = to
+					capturedMail = raw
+					return tt.clientErr
+				},
+				closeFunc: func(ctx context.Context) error { return nil },
+			}
+
+			a := &Adapter{
+				client:       mock,
+				cfg:          cfg,
+				clientDomain: clientDomain,
+				msgIDToUID:   make(map[string]uint32),
+			}
+
+			msgID, err := a.Send(ctx, tt.routedMsg)
+
+			// Validate client.Send was called with correct parameters
+			if !sendCalled {
+				t.Fatal("client.Send was not called")
+			}
+
+			if capturedFrom != cfg.Username {
+				t.Errorf(
+					"client.Send called with from=%q, want %q",
+					capturedFrom,
+					cfg.Username,
+				)
+			}
+
+			if len(capturedTo) != 1 || capturedTo[0] != tt.routedMsg.To.ID {
+				t.Errorf(
+					"client.Send called with to=%v, want %v",
+					capturedTo,
+					[]string{tt.routedMsg.To.ID},
+				)
+			}
+
+			// Validate the email bytes structure
+			if len(capturedMail) == 0 {
+				t.Fatal("client.Send called with empty mail bytes")
+			}
+
+			mailStr := string(capturedMail)
+
+			// Validate email has proper structure
+			if !strings.Contains(mailStr, "From: ") {
+				t.Error("email missing From header")
+			}
+			if !strings.Contains(mailStr, "To: ") {
+				t.Error("email missing To header")
+			}
+			if !strings.Contains(mailStr, "Message-ID: ") {
+				t.Error("email missing Message-ID header")
+			}
+			if !strings.Contains(mailStr, "Subject: ") {
+				t.Error("email missing Subject header")
+			}
+			if !strings.Contains(mailStr, "\r\n\r\n") {
+				t.Error("email missing MIME boundary")
+			}
+			if !strings.Contains(mailStr, tt.routedMsg.Message.Body) {
+				t.Error("email body does not contain routed message body")
+			}
+
+			// Validate return values
+			if tt.shouldFail {
+				if err == nil {
+					t.Fatal("Send should return error on client failure")
+				}
+				if msgID != "" {
+					t.Errorf("Send should return empty msgID on error, got %q", msgID)
+				}
+				if !strings.Contains(err.Error(), "failed to send mail") {
+					t.Errorf("error message should contain context, got: %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Send returned unexpected error: %v", err)
+				}
+
+				// Message ID should be in angle brackets and contain the client domain
+				if !strings.HasPrefix(msgID, "<") || !strings.HasSuffix(msgID, ">") {
+					t.Errorf("msgID format invalid: %q", msgID)
+				}
+				if !strings.Contains(msgID, clientDomain) {
+					t.Errorf(
+						"msgID should contain client domain %q, got %q",
+						clientDomain,
+						msgID,
+					)
+				}
+
+				// Verify Message-ID in email matches returned ID
+				if !strings.Contains(mailStr, fmt.Sprintf("Message-ID: %s", msgID)) {
+					t.Errorf(
+						"email Message-ID header should contain returned msgID %q",
+						msgID,
+					)
+				}
+			}
+		})
+	}
+}
+
+// TestMakeEmail validates that makeEmail constructs a valid RFC 822 message with
+// all required headers, body, and MIME structure.
+func TestMakeEmail(t *testing.T) {
+	tests := []struct {
+		name    string
+		from    mail.Address
+		to      mail.Address
+		msgID   string
+		replyTo string
+		subject string
+		body    string
+	}{
+		{
+			name:    "complete message with reply",
+			from:    mail.Address{Name: "Alice", Address: "alice@example.com"},
+			to:      mail.Address{Name: "Bob", Address: "bob@example.com"},
+			msgID:   "<msg123@example.com>",
+			replyTo: "<parent@example.com>",
+			subject: "Test Subject",
+			body:    "This is the message body.",
+		},
+		{
+			name:    "message without reply-to",
+			from:    mail.Address{Name: "Charlie", Address: "charlie@example.com"},
+			to:      mail.Address{Address: "dave@example.com"},
+			msgID:   "<msg456@example.com>",
+			replyTo: "",
+			subject: "Original Subject",
+			body:    "Original message body.",
+		},
+		{
+			name:    "minimal headers",
+			from:    mail.Address{Address: "sender@example.com"},
+			to:      mail.Address{Address: "recipient@example.com"},
+			msgID:   "<minimal@example.com>",
+			replyTo: "",
+			subject: "",
+			body:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := makeEmail(tt.from, tt.to, tt.msgID, tt.replyTo, tt.subject, tt.body)
+
+			if len(result) == 0 {
+				t.Fatal("makeEmail returned empty result")
+			}
+
+			resultStr := string(result)
+
+			// Validate From header
+			expectedFrom := fmt.Sprintf("From: %s\r\n", tt.from.String())
+			if !strings.Contains(resultStr, expectedFrom) {
+				t.Errorf("missing or malformed From header: want %q in %q", expectedFrom, resultStr)
+			}
+
+			// Validate To header
+			expectedTo := fmt.Sprintf("To: %s\r\n", tt.to.String())
+			if !strings.Contains(resultStr, expectedTo) {
+				t.Errorf("missing or malformed To header: want %q in %q", expectedTo, resultStr)
+			}
+
+			// Validate Message-ID header
+			expectedMsgID := fmt.Sprintf("Message-ID: %s\r\n", tt.msgID)
+			if !strings.Contains(resultStr, expectedMsgID) {
+				t.Errorf("missing or malformed Message-ID header: want %q", expectedMsgID)
+			}
+
+			// Validate In-Reply-To header (only if replyTo is not empty)
+			if tt.replyTo != "" {
+				expectedReplyTo := fmt.Sprintf("In-Reply-To: %s\r\n", tt.replyTo)
+				if !strings.Contains(resultStr, expectedReplyTo) {
+					t.Errorf("missing or malformed In-Reply-To header: want %q", expectedReplyTo)
+				}
+			} else {
+				if strings.Contains(resultStr, "In-Reply-To:") {
+					t.Error("In-Reply-To header should not be present when replyTo is empty")
+				}
+			}
+
+			// Validate Subject header
+			if tt.subject != "" {
+				expectedSubject := fmt.Sprintf("Subject: %s\r\n", tt.subject)
+				if !strings.Contains(resultStr, expectedSubject) {
+					t.Errorf("missing or malformed Subject header: want %q", expectedSubject)
+				}
+			}
+
+			// Validate Date header is present and ends with timezone (RFC 1123Z)
+			if !strings.Contains(resultStr, "Date: ") {
+				t.Error("missing Date header")
+			}
+			datePattern := regexp.MustCompile(`Date: .+\r\n`)
+			if !datePattern.MatchString(resultStr) {
+				t.Error("Date header not properly formatted with \\r\\n terminator")
+			}
+
+			// Validate MIME headers
+			if !strings.Contains(resultStr, "MIME-Version: 1.0\r\n") {
+				t.Error("missing or malformed MIME-Version header")
+			}
+			if !strings.Contains(resultStr, "Content-Type: text/plain; charset=UTF-8\r\n") {
+				t.Error("missing or malformed Content-Type header")
+			}
+
+			// Validate MIME boundary (empty line separating headers from body)
+			if !strings.Contains(resultStr, "\r\n\r\n") {
+				t.Error("missing MIME boundary (empty line between headers and body)")
+			}
+
+			// Validate body is present and correct
+			parts := strings.Split(resultStr, "\r\n\r\n")
+			if len(parts) < 2 {
+				t.Fatal("email structure invalid: no body section found")
+			}
+			if parts[1] != tt.body {
+				t.Errorf("body mismatch: got %q, want %q", parts[1], tt.body)
+			}
+
+			// Validate that email can be parsed as RFC 822
+			msg, err := mail.ReadMessage(strings.NewReader(resultStr))
+			if err != nil {
+				t.Errorf("generated email is not valid RFC 822: %v", err)
+			}
+			if msg.Header.Get("From") != tt.from.String() {
+				t.Errorf(
+					"parsed From header = %q, want %q",
+					msg.Header.Get("From"),
+					tt.from.String(),
+				)
+			}
+			if msg.Header.Get("Message-ID") != tt.msgID {
+				t.Errorf("parsed Message-ID = %q, want %q", msg.Header.Get("Message-ID"), tt.msgID)
+			}
+		})
 	}
 }

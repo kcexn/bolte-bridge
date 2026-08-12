@@ -27,7 +27,7 @@ func run() error {
 
 	log.Printf("store initialised at %s", cfg.Store.SQLite.Path)
 	// TODO: implement the rest of the relay here.
-	return nil
+	return err
 }
 
 func main() {

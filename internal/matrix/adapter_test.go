@@ -188,14 +188,13 @@ func TestFetchMessages(t *testing.T) {
 	now := time.Now()
 	a.client.(*mockClient).eventsToFetch = []RawEvent{
 		{
-			EventID:    "!aaa-event:matrix.org",
-			Sender:     "@alice:matrix.org",
-			RoomID:     "!room:matrix.org",
-			Body:       "Hello, world!",
-			MsgType:    "m.text",
-			ThreadRoot: "",
-			ReplyTo:    "",
-			Timestamp:  now,
+			EventID:   "!aaa-event:matrix.org",
+			Sender:    "@alice:matrix.org",
+			RoomID:    "!room:matrix.org",
+			Body:      "Hello, world!",
+			MsgType:   "m.text",
+			InReplyTo: "",
+			Timestamp: now,
 		},
 	}
 

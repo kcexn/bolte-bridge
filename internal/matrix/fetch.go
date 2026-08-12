@@ -60,8 +60,7 @@ func toRawEvent(evt *event.Event, roomID string) (RawEvent, bool) {
 		Timestamp: time.UnixMilli(evt.Timestamp),
 	}
 	if rel := msg.RelatesTo; rel != nil {
-		re.ThreadRoot = rel.GetThreadParent().String()
-		re.ReplyTo = rel.GetReplyTo().String()
+		re.InReplyTo = rel.GetReplyTo().String()
 	}
 	return re, true
 }

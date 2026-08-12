@@ -37,7 +37,8 @@ type Message struct {
 
 	// --- Metadata ---
 	MessageID string // Unique identifier for this message. Provided by the sender.
-	ThreadID  string // Unique identifier for the thread this message belongs to. Provided by the sender.
+	InReplyTo string // Identifies the message this message is replying to.
+	Subject   string // Subject line of the message.
 
 	// --- Content ---
 	Body string // canonical plain-text body (always populated)
