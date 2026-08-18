@@ -80,15 +80,14 @@ func (a *Adapter) setCursor(ctx context.Context, uid, uidValidity uint32) error 
 func rawMessagesToRelayMessages(
 	rawMessages []RawMessage,
 ) ([]relay.Message, error) {
-	messages := make([]relay.Message, len(rawMessages))
+	messages := make([]relay.Message, 0, len(rawMessages))
 
-	for i, raw := range rawMessages {
+	for _, raw := range rawMessages {
 		msg, err := rawMessageToRelayMessage(raw)
 		if err != nil {
 			return nil, err
 		}
-		messages[i] = msg
-
+		messages = append(messages, msg)
 	}
 	return messages, nil
 }
