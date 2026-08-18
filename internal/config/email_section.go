@@ -38,6 +38,12 @@ func emailSection(b *Binder) (ApplyFunc, error) {
 		"host:port of the SMTP submission endpoint (STARTTLS).",
 	)
 	b.String("email.mailbox", "email-mailbox", defaultMailbox, "IMAP mailbox to fetch from.")
+	b.String(
+		"email.message-domain",
+		"email-message-domain",
+		"",
+		"Domain used when generating Message-ID's.",
+	)
 
 	return func(cfg *Config) error {
 		v := b.Viper()
@@ -49,12 +55,17 @@ func emailSection(b *Binder) (ApplyFunc, error) {
 		if password == "" {
 			return errors.New("email.password must not be empty (set BOLTE_BRIDGE_EMAIL_PASSWORD)")
 		}
+		messageDomain := v.GetString("email.message-domain")
+		if messageDomain == "" {
+			return errors.New("email.message-domain must not be empty")
+		}
 		cfg.Email = email.Config{
-			Username: username,
-			Password: password,
-			IMAPAddr: v.GetString("email.imap-addr"),
-			SMTPAddr: v.GetString("email.smtp-addr"),
-			Mailbox:  v.GetString("email.mailbox"),
+			Username:      username,
+			Password:      password,
+			IMAPAddr:      v.GetString("email.imap-addr"),
+			SMTPAddr:      v.GetString("email.smtp-addr"),
+			MessageDomain: v.GetString("email.message-domain"),
+			Mailbox:       v.GetString("email.mailbox"),
 		}
 		return nil
 	}, nil

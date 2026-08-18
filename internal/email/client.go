@@ -30,6 +30,9 @@ type Config struct {
 	// STARTTLS (for Gmail, "smtp.gmail.com:587").
 	SMTPAddr string
 
+	// The domain used for generating MessageID's
+	MessageDomain string
+
 	// Mailbox is the IMAP mailbox Fetch reads from (for Gmail, "INBOX").
 	Mailbox string
 }
@@ -147,6 +150,9 @@ func validateConfig(cfg Config) error {
 	}
 	if cfg.Mailbox == "" {
 		return errors.New("email: Config.Mailbox is required")
+	}
+	if cfg.MessageDomain == "" {
+		return errors.New("email: Config.MessageDomain is required")
 	}
 	return nil
 }

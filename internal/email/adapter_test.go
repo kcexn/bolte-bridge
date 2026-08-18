@@ -855,7 +855,7 @@ func TestAdapterSend(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := validConfig()
 			cfg.Username = "bridge@example.org"
-			clientDomain := "example.org"
+			cfg.MessageDomain = "example.org"
 
 			sendCalled := false
 			var capturedFrom string
@@ -879,10 +879,9 @@ func TestAdapterSend(t *testing.T) {
 			}
 
 			a := &Adapter{
-				client:       mock,
-				cfg:          cfg,
-				clientDomain: clientDomain,
-				msgIDToUID:   make(map[string]uint32),
+				client:     mock,
+				cfg:        cfg,
+				msgIDToUID: make(map[string]uint32),
 			}
 
 			msgID, err := a.Send(ctx, tt.routedMsg)
@@ -955,10 +954,10 @@ func TestAdapterSend(t *testing.T) {
 				if !strings.HasPrefix(msgID, "<") || !strings.HasSuffix(msgID, ">") {
 					t.Errorf("msgID format invalid: %q", msgID)
 				}
-				if !strings.Contains(msgID, clientDomain) {
+				if !strings.Contains(msgID, cfg.MessageDomain) {
 					t.Errorf(
 						"msgID should contain client domain %q, got %q",
-						clientDomain,
+						cfg.MessageDomain,
 						msgID,
 					)
 				}

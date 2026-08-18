@@ -8,11 +8,12 @@ import (
 // test case can zero out exactly the one field it exercises.
 func validConfig() Config {
 	return Config{
-		Username: "user@example.com",
-		Password: "hunter2",
-		IMAPAddr: "imap.example.com:993",
-		SMTPAddr: "smtp.example.com:587",
-		Mailbox:  "INBOX",
+		Username:      "user@example.com",
+		Password:      "hunter2",
+		IMAPAddr:      "imap.example.com:993",
+		SMTPAddr:      "smtp.example.com:587",
+		MessageDomain: "example.com",
+		Mailbox:       "INBOX",
 	}
 }
 
@@ -46,6 +47,11 @@ func TestValidateConfig(t *testing.T) {
 			name:    "missing mailbox",
 			mutate:  func(c *Config) { c.Mailbox = "" },
 			wantErr: "email: Config.Mailbox is required",
+		},
+		{
+			name:    "missing message domain",
+			mutate:  func(c *Config) { c.MessageDomain = "" },
+			wantErr: "email: Config.MessageDomain is required",
 		},
 		{
 			name:    "all fields valid",

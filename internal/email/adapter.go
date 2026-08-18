@@ -19,8 +19,6 @@ import (
 type Adapter struct {
 	client Client
 	cfg    Config
-	// The domain used for generating Message-ID's
-	clientDomain string
 	// Maps Message-ID to IMAP UID from last Fetch.
 	msgIDToUID map[string]uint32
 	// The last seen UID from the previous Fetch.
@@ -32,16 +30,15 @@ var _ core.Adapter = (*Adapter)(nil)
 
 // NewAdapter builds an Adapter and the Client it owns from cfg, reporting any
 // configuration error from Client construction.
-func NewAdapter(ctx context.Context, clientDomain string, cfg Config) (*Adapter, error) {
+func NewAdapter(ctx context.Context, cfg Config) (*Adapter, error) {
 	client, err := NewClient(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &Adapter{
-		client:       client,
-		cfg:          cfg,
-		clientDomain: clientDomain,
-		msgIDToUID:   make(map[string]uint32),
+		client:     client,
+		cfg:        cfg,
+		msgIDToUID: make(map[string]uint32),
 	}, nil
 }
 
@@ -59,7 +56,7 @@ func (a *Adapter) Fetch(ctx context.Context) ([]relay.Message, error) {
 // Send will reconstruct msg as an RFC 822 message, submit it over SMTP, and
 // return the Message-ID it was delivered under.
 func (a *Adapter) Send(ctx context.Context, msg relay.RoutedMessage) (string, error) {
-	msgID := fmt.Sprintf("<%s@%s>", uuid.NewString(), a.clientDomain)
+	msgID := fmt.Sprintf("<%s@%s>", uuid.NewString(), a.cfg.MessageDomain)
 	mail := makeEmail(
 		mail.Address{
 			Name:    msg.Message.Sender.DisplayName,

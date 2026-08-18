@@ -38,6 +38,7 @@ BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token> \
 BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token> \
 ./bolte-bridge \
   --email bridge@example.com \
+  --email-message-domain 'matrix.org' \
   --matrix-homeserver-url https://matrix.org \
   --matrix-server-name matrix.org \
   --matrix-appservice-id my-bridge \
@@ -53,6 +54,7 @@ BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token> \
 BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token> \
 go run . \
   --email bridge@example.com \
+  --email-message-domain 'matrix.org' \
   --matrix-homeserver-url https://matrix.org \
   --matrix-server-name matrix.org \
   --matrix-appservice-id my-bridge \
@@ -85,6 +87,7 @@ be visible in the process table and in shell history.
 | `--email-imap-addr` | `host:port` of the IMAP endpoint (implicit TLS). | `imap.gmail.com:993` |
 | `--email-mailbox` | IMAP mailbox to fetch from. | `INBOX` |
 | `--email-smtp-addr` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
+| `--email-message-domain` | Domain used when generating email Message-ID's. | — |
 | `--matrix-appservice-id` | Appservice registration ID. **Required.** | — |
 | `--matrix-homeserver-url` | Base URL of the homeserver Client-Server API (e.g. `https://matrix.org`). **Required.** | — |
 | `--matrix-room-id` | The Matrix room to bridge (`!room:server`). **Required.** | — |
@@ -104,6 +107,7 @@ Every setting is also readable from the environment, under the
 | `BOLTE_BRIDGE_EMAIL_MAILBOX` | IMAP mailbox to fetch from. | `INBOX` |
 | `BOLTE_BRIDGE_EMAIL_PASSWORD` | Account password. **Required**, and settable only here. | — |
 | `BOLTE_BRIDGE_EMAIL_SMTP_ADDR` | `host:port` of the SMTP submission endpoint (STARTTLS). | `smtp.gmail.com:587` |
+| `BOLTE_BRIDGE_EMAIL_MESSAGE_DOMAIN` | Domain used when generating email Message-ID's. | — |
 | `BOLTE_BRIDGE_MATRIX_APPSERVICE_ID` | Appservice registration ID. **Required.** | — |
 | `BOLTE_BRIDGE_MATRIX_AS_TOKEN` | Appservice token (`as_token`). **Required**, settable only here. | — |
 | `BOLTE_BRIDGE_MATRIX_HOMESERVER_URL` | Base URL of the homeserver Client-Server API. **Required.** | — |
@@ -130,6 +134,7 @@ export BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token>
 export BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token>
 go run . \
   --email bridge@example.com \
+  --email-message-domain 'example.com' \
   --matrix-homeserver-url https://matrix.org \
   --matrix-server-name matrix.org \
   --matrix-appservice-id my-bridge \
@@ -145,6 +150,7 @@ export BOLTE_BRIDGE_MATRIX_AS_TOKEN=<as-token>
 export BOLTE_BRIDGE_MATRIX_HS_TOKEN=<hs-token>
 go run . \
   --email bridge@example.com \
+  --email-message-domain 'example.com' \
   --db-path bridge.db \
   --matrix-homeserver-url https://matrix.org \
   --matrix-server-name matrix.org \
@@ -165,6 +171,7 @@ go run . \
   --email-imap-addr imap.example.com:993 \
   --email-smtp-addr smtp.example.com:587 \
   --email-mailbox Lists/mlug \
+  --email-message-domain 'example.com' \
   --matrix-homeserver-url https://matrix.org \
   --matrix-server-name matrix.org \
   --matrix-appservice-id my-bridge \
@@ -181,6 +188,7 @@ export BOLTE_BRIDGE_EMAIL_PASSWORD=<app-password>
 export BOLTE_BRIDGE_EMAIL_IMAP_ADDR=imap.example.com:993
 export BOLTE_BRIDGE_EMAIL_SMTP_ADDR=smtp.example.com:587
 export BOLTE_BRIDGE_EMAIL_MAILBOX=Lists/mlug
+export BOLTE_BRIDGE_EMAIL_MESSAGE_DOMAIN='example.com'
 export BOLTE_BRIDGE_MATRIX_HOMESERVER_URL=https://matrix.org
 export BOLTE_BRIDGE_MATRIX_SERVER_NAME=matrix.org
 export BOLTE_BRIDGE_MATRIX_APPSERVICE_ID=my-bridge

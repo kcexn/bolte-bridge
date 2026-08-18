@@ -90,6 +90,7 @@ func TestLoadEmailConfig(t *testing.T) {
 	// endpoint fields exercise default/env/flag precedence.
 	const account = "BOLTE_BRIDGE_EMAIL_ACCOUNT"
 	const password = "BOLTE_BRIDGE_EMAIL_PASSWORD"
+	const messageDomain = "BOLTE_BRIDGE_EMAIL_MESSAGE_DOMAIN"
 
 	tests := []struct {
 		name string
@@ -99,13 +100,18 @@ func TestLoadEmailConfig(t *testing.T) {
 	}{
 		{
 			name: "endpoint defaults when only credentials are set",
-			env:  map[string]string{account: "bridge@example.org", password: "app-password"},
+			env: map[string]string{
+				account:       "bridge@example.org",
+				password:      "app-password",
+				messageDomain: "example.org",
+			},
 			want: email.Config{
-				Username: "bridge@example.org",
-				Password: "app-password",
-				IMAPAddr: defaultIMAPAddr,
-				SMTPAddr: defaultSMTPAddr,
-				Mailbox:  defaultMailbox,
+				Username:      "bridge@example.org",
+				Password:      "app-password",
+				IMAPAddr:      defaultIMAPAddr,
+				SMTPAddr:      defaultSMTPAddr,
+				MessageDomain: "example.org",
+				Mailbox:       defaultMailbox,
 			},
 		},
 		{
@@ -113,16 +119,18 @@ func TestLoadEmailConfig(t *testing.T) {
 			env: map[string]string{
 				account:                        "bridge@example.org",
 				password:                       "app-password",
+				messageDomain:                  "example.org",
 				"BOLTE_BRIDGE_EMAIL_IMAP_ADDR": "imap.example.org:1993",
 				"BOLTE_BRIDGE_EMAIL_SMTP_ADDR": "smtp.example.org:1587",
 				"BOLTE_BRIDGE_EMAIL_MAILBOX":   "Lists/lug",
 			},
 			want: email.Config{
-				Username: "bridge@example.org",
-				Password: "app-password",
-				IMAPAddr: "imap.example.org:1993",
-				SMTPAddr: "smtp.example.org:1587",
-				Mailbox:  "Lists/lug",
+				Username:      "bridge@example.org",
+				Password:      "app-password",
+				IMAPAddr:      "imap.example.org:1993",
+				SMTPAddr:      "smtp.example.org:1587",
+				MessageDomain: "example.org",
+				Mailbox:       "Lists/lug",
 			},
 		},
 		{
@@ -136,28 +144,35 @@ func TestLoadEmailConfig(t *testing.T) {
 			env: map[string]string{
 				account:                        "env@example.org",
 				password:                       "app-password",
+				messageDomain:                  "example.org",
 				"BOLTE_BRIDGE_EMAIL_IMAP_ADDR": "imap.env.org:993",
 				"BOLTE_BRIDGE_EMAIL_SMTP_ADDR": "smtp.env.org:587",
 				"BOLTE_BRIDGE_EMAIL_MAILBOX":   "Enved",
 			},
 			want: email.Config{
-				Username: "flag@example.org",
-				Password: "app-password",
-				IMAPAddr: "imap.flag.org:993",
-				SMTPAddr: "smtp.flag.org:587",
-				Mailbox:  "Flagged",
+				Username:      "flag@example.org",
+				Password:      "app-password",
+				IMAPAddr:      "imap.flag.org:993",
+				SMTPAddr:      "smtp.flag.org:587",
+				MessageDomain: "example.org",
+				Mailbox:       "Flagged",
 			},
 		},
 		{
 			name: "short account flag overrides the environment",
 			args: []string{"-e", "short@example.org"},
-			env:  map[string]string{account: "env@example.org", password: "app-password"},
+			env: map[string]string{
+				account:       "env@example.org",
+				password:      "app-password",
+				messageDomain: "example.org",
+			},
 			want: email.Config{
-				Username: "short@example.org",
-				Password: "app-password",
-				IMAPAddr: defaultIMAPAddr,
-				SMTPAddr: defaultSMTPAddr,
-				Mailbox:  defaultMailbox,
+				Username:      "short@example.org",
+				Password:      "app-password",
+				IMAPAddr:      defaultIMAPAddr,
+				SMTPAddr:      defaultSMTPAddr,
+				MessageDomain: "example.org",
+				Mailbox:       defaultMailbox,
 			},
 		},
 	}
@@ -179,30 +194,59 @@ func TestLoadEmailConfig(t *testing.T) {
 	}
 }
 
-func TestLoadEmailAccountValidationErrorAborts(t *testing.T) {
-	// An empty email.account is rejected by emailSection's ApplyFunc, even with a
-	// password present.
-	t.Setenv("BOLTE_BRIDGE_EMAIL_PASSWORD", "app-password")
-	_, err := Load([]string{"--email", ""}, emailSection)
-	if err == nil {
-		t.Fatal("Load with empty email.account returned nil error, want non-nil")
-	}
-	if !strings.Contains(err.Error(), "email.account") {
-		t.Errorf("error %q does not mention the offending key email.account", err)
-	}
-}
+func TestLoadEmailConfigValidationErrorAborts(t *testing.T) {
+	const account = "BOLTE_BRIDGE_EMAIL_ACCOUNT"
+	const password = "BOLTE_BRIDGE_EMAIL_PASSWORD"
+	const messageDomain = "BOLTE_BRIDGE_EMAIL_MESSAGE_DOMAIN"
 
-func TestLoadEmailPasswordValidationErrorAborts(t *testing.T) {
-	// The password is env-only; an account with no password is rejected by
-	// emailSection's ApplyFunc. Clearing the variable guards against ambient
-	// values leaking in from the test host.
-	t.Setenv("BOLTE_BRIDGE_EMAIL_PASSWORD", "")
-	_, err := Load([]string{"--email", "bridge@example.org"}, emailSection)
-	if err == nil {
-		t.Fatal("Load with empty email.password returned nil error, want non-nil")
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{
+			name: "missing account aborts",
+			env: map[string]string{
+				account:       "",
+				password:      "app-password",
+				messageDomain: "example.org",
+			},
+			wantErr: "email.account must not be empty",
+		},
+		{
+			name: "missing password aborts",
+			env: map[string]string{
+				account:       "bridge@example.org",
+				password:      "",
+				messageDomain: "example.org",
+			},
+			wantErr: "email.password must not be empty (set BOLTE_BRIDGE_EMAIL_PASSWORD)",
+		},
+		{
+			name: "missing message domain aborts",
+			env: map[string]string{
+				account:       "env@example.org",
+				password:      "app-password",
+				messageDomain: "",
+			},
+			wantErr: "email.message-domain must not be empty",
+		},
 	}
-	if !strings.Contains(err.Error(), "email.password") {
-		t.Errorf("error %q does not mention the offending key email.password", err)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+
+			_, err := Load([]string{}, emailSection)
+			if err == nil {
+				t.Fatalf("Load did not abort")
+			}
+			if got := err.Error(); !strings.Contains(got, tc.wantErr) {
+				t.Errorf("Load error = %q does not contain %q", got, tc.wantErr)
+			}
+		})
 	}
 }
 
