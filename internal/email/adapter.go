@@ -11,6 +11,7 @@ import (
 
 	"bolte-bridge/internal/core"
 	"bolte-bridge/internal/relay"
+	"bolte-bridge/internal/store"
 )
 
 // Adapter is the email medium edge of the bridge. It owns the Client it talks
@@ -23,6 +24,8 @@ type Adapter struct {
 	msgIDToUID map[string]uint32
 	// The last seen UID from the previous Fetch.
 	uidCursor uint32
+	// The UIDValidity from the last Fetch.
+	uidValidity uint32
 }
 
 // Compile-time assertion that Adapter satisfies core.Adapter.
@@ -77,13 +80,31 @@ func (a *Adapter) Send(ctx context.Context, msg relay.RoutedMessage) (string, er
 // Commit will durably advance the read cursor to the Message-ID named by cursor,
 // committing every message up to and including it, or everything the preceding
 // Fetch returned when cursor is empty.
-func (a *Adapter) Commit(_ context.Context, _ string) error {
-	return nil
+func (a *Adapter) Commit(ctx context.Context, cursor string) error {
+	if cursor == "" {
+		return a.setCursor(ctx, a.uidCursor, a.uidValidity)
+	}
+
+	if uid, ok := a.msgIDToUID[cursor]; ok {
+		return a.setCursor(ctx, uid, a.uidValidity)
+	}
+
+	return fmt.Errorf(
+		"emailAdapter: failed to commit: cursor %q not found in fetched messages",
+		cursor,
+	)
 }
 
 // Close closes the underlying email client.
 func (a *Adapter) Close(ctx context.Context) error {
 	return a.client.Close(ctx)
+}
+
+// setCursor durably persists the given UID and UIDValidity to the store.
+func (a *Adapter) setCursor(ctx context.Context, uid, uidValidity uint32) error {
+	return store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
+		return tx.Email().SetCursor(ctx, a.cfg.Username, a.cfg.Mailbox, uid, uidValidity)
+	})
 }
 
 func makeEmail(from, to mail.Address, messageID, inReplyTo, subject, body string) []byte {

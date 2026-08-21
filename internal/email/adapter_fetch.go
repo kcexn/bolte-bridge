@@ -49,6 +49,7 @@ func (a *Adapter) fetchMessages(ctx context.Context, startUID uint32) ([]relay.M
 	a.msgIDToUID = msgIDToUID
 
 	a.uidCursor = rawMessages[len(rawMessages)-1].UID
+	a.uidValidity = rawMessages[len(rawMessages)-1].UIDValidity
 
 	return messages, nil
 }
@@ -66,13 +67,6 @@ func (a *Adapter) getCursor(ctx context.Context) (uint32, uint32, error) {
 		return nil
 	})
 	return uid, uidValidity, err
-}
-
-// setCursor durably persists the given UID and UIDValidity to the store.
-func (a *Adapter) setCursor(ctx context.Context, uid, uidValidity uint32) error {
-	return store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
-		return tx.Email().SetCursor(ctx, a.cfg.Username, a.cfg.Mailbox, uid, uidValidity)
-	})
 }
 
 // rawMessagesToRelayMessages converts a slice of RawMessages to relay.Messages,

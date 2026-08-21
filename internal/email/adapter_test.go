@@ -111,6 +111,83 @@ func TestSetCursor(t *testing.T) {
 	}
 }
 
+// TestCommitEmptyCursor checks that Commit with an empty cursor commits the
+// latest fetched UID cursor and UIDValidity.
+func TestCommitEmptyCursor(t *testing.T) {
+	ctx := context.Background()
+	a := newTestAdapter("commit-empty@example.com")
+	a.uidCursor = 42
+	a.uidValidity = 100
+
+	if err := a.Commit(ctx, ""); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	gotUID, gotValidity, err := a.getCursor(ctx)
+	if err != nil {
+		t.Fatalf("getCursor: %v", err)
+	}
+	if gotUID != a.uidCursor {
+		t.Errorf("persisted UID = %d, want %d", gotUID, a.uidCursor)
+	}
+	if gotValidity != a.uidValidity {
+		t.Errorf("persisted UIDValidity = %d, want %d", gotValidity, a.uidValidity)
+	}
+}
+
+// TestCommitMessageIDCursor checks that Commit with a valid Message-ID cursor
+// commits the corresponding IMAP UID from msgIDToUID.
+func TestCommitMessageIDCursor(t *testing.T) {
+	ctx := context.Background()
+	a := newTestAdapter("commit-msgid@example.com")
+	msgID := "<msg-123@example.com>"
+	wantUID := uint32(77)
+	a.uidValidity = 200
+	a.uidCursor = 99 // Should not be used when matching Message-ID is found
+	a.msgIDToUID = map[string]uint32{
+		msgID: wantUID,
+	}
+
+	if err := a.Commit(ctx, msgID); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	gotUID, gotValidity, err := a.getCursor(ctx)
+	if err != nil {
+		t.Fatalf("getCursor: %v", err)
+	}
+	if gotUID != wantUID {
+		t.Errorf("persisted UID = %d, want %d", gotUID, wantUID)
+	}
+	if gotValidity != a.uidValidity {
+		t.Errorf("persisted UIDValidity = %d, want %d", gotValidity, a.uidValidity)
+	}
+}
+
+// TestCommitCursorNotFound checks that Commit returns an error when the given
+// cursor is not found in msgIDToUID.
+func TestCommitCursorNotFound(t *testing.T) {
+	ctx := context.Background()
+	a := newTestAdapter("commit-notfound@example.com")
+	a.msgIDToUID = map[string]uint32{
+		"<other@example.com>": 10,
+	}
+
+	cursor := "<nonexistent@example.com>"
+	err := a.Commit(ctx, cursor)
+	if err == nil {
+		t.Fatal("Commit expected error for unknown cursor, got nil")
+	}
+
+	wantErr := fmt.Sprintf(
+		"emailAdapter: failed to commit: cursor %q not found in fetched messages",
+		cursor,
+	)
+	if err.Error() != wantErr {
+		t.Errorf("Commit error = %q, want %q", err.Error(), wantErr)
+	}
+}
+
 // TestRawMessageToRelayMessage checks that a raw RFC 822 message is correctly
 // parsed into a relay.Message with sender, message ID, thread ID, and body.
 func TestRawMessageToRelayMessage(t *testing.T) {
