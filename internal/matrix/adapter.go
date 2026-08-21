@@ -5,6 +5,7 @@ import (
 
 	"bolte-bridge/internal/core"
 	"bolte-bridge/internal/relay"
+	"bolte-bridge/internal/store"
 )
 
 // Adapter is the Matrix medium edge of the bridge.
@@ -49,8 +50,15 @@ func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error)
 
 // Commit will durably advance the Matrix EventID cursor. An empty cursor
 // commits everything returned by the preceding Fetch.
-func (a *Adapter) Commit(_ context.Context, _ string) error {
-	return nil
+func (a *Adapter) Commit(ctx context.Context, cursor string) error {
+	if cursor == "" {
+		return nil
+	}
+
+	// Persist the cursor within a database transaction.
+	return store.Client().WithTx(ctx, func(txCtx context.Context, tx store.Tx) error {
+		return tx.Matrix().SetCursor(txCtx, a.cfg.ServerName, a.cfg.RoomID, cursor)
+	})
 }
 
 // Close closes the underlying Matrix client.
