@@ -1,6 +1,6 @@
 # Bolte Bridge -- email to matrix message bridge
 
-[![CI](https://github.com/kcexn/bolte-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/kcexn/bolte-bridge/actions/workflows/ci.yml)
+[![CI](https://github.com/kcexn/bolte-bridge/actions/workflows/integration.yml/badge.svg)](https://github.com/kcexn/bolte-bridge/actions/workflows/integration.yml)
 [![codecov](https://codecov.io/gh/kcexn/bolte-bridge/graph/badge.svg?token=XVS6GG084Y)](https://codecov.io/gh/kcexn/bolte-bridge)
 
 Bolte Bridge is a bidirectional bridge between traditional mailing lists and a Matrix room.
