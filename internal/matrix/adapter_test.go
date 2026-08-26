@@ -236,9 +236,23 @@ func TestAdapterSend(t *testing.T) {
 
 func TestAdapterCommit(t *testing.T) {
 	a := newTestAdapter()
+	ctx := context.Background()
 
-	if err := a.Commit(context.Background(), ""); err != nil {
-		t.Fatalf("Commit() error = %v", err)
+	if err := a.Commit(ctx, ""); err != nil {
+		t.Fatalf("Commit(empty) error = %v", err)
+	}
+
+	wantEventID := "bbb-event:matrix.org"
+	if err := a.Commit(ctx, wantEventID); err != nil {
+		t.Fatalf("Commit(valid) error = %v", err)
+	}
+
+	gotEventID, err := a.getCursor(ctx)
+	if err != nil {
+		t.Fatalf("getCursor after Commit: %v", err)
+	}
+	if gotEventID != wantEventID {
+		t.Errorf("persisted EventID = %q, want %q", gotEventID, wantEventID)
 	}
 }
 
