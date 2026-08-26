@@ -1,14 +1,19 @@
-name: Unit Tests
+name: CI
 
 on:
-  pull_request:
+  push:
+    branches: [main]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
-  test:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
@@ -16,13 +21,20 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run unit tests
+      - name: Run unit and integration tests
+        env:
+          CI_IMAP_ADDR: ${{ vars.CI_IMAP_ADDR }}
+          CI_IMAP_USER: ${{ vars.CI_IMAP_USER }}
+          CI_IMAP_PASS: ${{ secrets.CI_IMAP_PASS }}
+          CI_IMAP_MBOX: ${{ vars.CI_IMAP_MBOX }}
+          CI_SMTP_ADDR: ${{ vars.CI_SMTP_ADDR }}
         run: >
           go test
           -race
           -covermode=atomic
           -coverpkg=./internal/...
           -coverprofile=coverage.out
+          -tags=integration
           -v
           ./...
 
