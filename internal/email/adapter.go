@@ -119,9 +119,9 @@ func makeEmail(from, to mail.Address, messageID, inReplyTo, subject, body string
 	fmt.Fprintf(&b, "Message-ID: %s\r\n", messageID)
 	fmt.Fprintf(&b, "Subject: %s\r\n", subject)
 	fmt.Fprintf(&b, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
-	fmt.Fprintf(&b, "MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&b, "Content-Type: text/plain; charset=UTF-8\r\n")
-	fmt.Fprintf(&b, "\r\n")
+	b.WriteString("MIME-Version: 1.0\r\n")
+	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	b.WriteString("\r\n")
 
 	// Body
 	b.WriteString(body)
