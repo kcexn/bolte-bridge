@@ -99,8 +99,7 @@ func (e *RelayEngine) filter(ctx context.Context, msg relay.Message) (bool, erro
 func (e *RelayEngine) sanitize(ctx context.Context, msg relay.Message) (relay.Message, error) {
 	for _, s := range e.Sanitizers {
 		var err error
-		msg, err = s(ctx, msg)
-		if err != nil {
+		if msg, err = s(ctx, msg); err != nil {
 			return relay.Message{}, err
 		}
 	}
@@ -116,8 +115,7 @@ func (e *RelayEngine) mapMessage(
 	routed := relay.RoutedMessage{Message: msg}
 	for _, m := range e.Mappers {
 		var err error
-		routed, err = m(ctx, routed)
-		if err != nil {
+		if routed, err = m(ctx, routed); err != nil {
 			return relay.RoutedMessage{}, err
 		}
 	}
