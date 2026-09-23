@@ -1,0 +1,31 @@
+--- internal/matrix/adapter_test.go
++++ internal/matrix/adapter_test.go
+@@ -228,6 +228,29 @@
+	}
+ }
+
++func TestFetchMessages_Empty(t *testing.T) {
++	a := newTestAdapter()
++	ctx := context.Background()
++	a.client.(*mockClient).eventsToFetch = []RawEvent{}
++
++	msgs, err := a.fetchMessages(ctx, "$cursor")
++	if err != nil {
++		t.Fatalf("fetchMessages() error = %v, want nil", err)
++	}
++
++	if len(msgs) != 0 {
++		t.Fatalf("fetchMessages() returned %d messages, want 0", len(msgs))
++	}
++
++	if a.lastEventID != "" {
++		t.Errorf("lastEventID = %q, want %q", a.lastEventID, "")
++	}
++
++	if a.lastFetched != nil {
++		t.Errorf("lastFetched = %v, want nil", a.lastFetched)
++	}
++}
++
+ func TestGhostSenderID(t *testing.T) {
+	cfg := validConfig()
