@@ -39,17 +39,21 @@ func (a *Adapter) getCursor(ctx context.Context) (string, error) {
 	return eventID, err
 }
 
-// setCursor updates the current EventID in the store.
-func (a *Adapter) setCursor(ctx context.Context, eventID string) error {
-	return store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
-		return tx.Matrix().SetCursor(ctx, a.cfg.ServerName, a.cfg.RoomID, eventID)
-	})
-}
-
 func (a *Adapter) fetchMessages(ctx context.Context, eventID string) ([]relay.Message, error) {
 	rawEvents, err := a.client.Fetch(ctx, eventID)
 	if err != nil {
 		return nil, err
+	}
+
+	a.lastFetched = make(map[string]bool, len(rawEvents))
+	a.lastEventID = ""
+
+	for _, event := range rawEvents {
+		a.lastFetched[event.EventID] = true
+	}
+
+	if len(rawEvents) > 0 {
+		a.lastEventID = rawEvents[len(rawEvents)-1].EventID
 	}
 
 	return rawEventsToRelayMessages(rawEvents), nil

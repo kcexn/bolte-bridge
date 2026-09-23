@@ -2,15 +2,21 @@ package matrix
 
 import (
 	"context"
+	"fmt"
 
 	"bolte-bridge/internal/core"
 	"bolte-bridge/internal/relay"
+	"bolte-bridge/internal/store"
 )
 
 // Adapter is the Matrix medium edge of the bridge.
 type Adapter struct {
 	client Client
 	cfg    Config
+	// Set of Matrix EventID's seen in the previous Fetch.
+	lastFetched map[string]bool
+	// The last seen EventID from the previous Fetch.
+	lastEventID string
 }
 
 // Compile-time assertion that Adapter satisfies core.Adapter.
@@ -47,13 +53,31 @@ func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error)
 	return "", nil
 }
 
-// Commit will durably advance the Matrix EventID cursor. An empty cursor
-// commits everything returned by the preceding Fetch.
-func (a *Adapter) Commit(_ context.Context, _ string) error {
-	return nil
+// Commit will durably advance the Matrix EventID cursor.
+// An empty cursor commits everything returned by the preceding Fetch.
+func (a *Adapter) Commit(ctx context.Context, cursor string) error {
+	if cursor == "" {
+		return a.setCursor(ctx, a.lastEventID)
+	}
+
+	if _, ok := a.lastFetched[cursor]; ok {
+		return a.setCursor(ctx, cursor)
+	}
+
+	return fmt.Errorf(
+		"matrix: failed to commit: cursor %q not found in fetched events",
+		cursor,
+	)
 }
 
 // Close closes the underlying Matrix client.
 func (a *Adapter) Close(ctx context.Context) error {
 	return a.client.Close(ctx)
+}
+
+// setCursor retrieves the current EventID from the store.
+func (a *Adapter) setCursor(ctx context.Context, eventID string) error {
+	return store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
+		return tx.Matrix().SetCursor(ctx, a.cfg.ServerName, a.cfg.RoomID, eventID)
+	})
 }

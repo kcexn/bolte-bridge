@@ -234,11 +234,91 @@ func TestAdapterSend(t *testing.T) {
 	}
 }
 
-func TestAdapterCommit(t *testing.T) {
+// TestCommitEmptyCursor checks that Commit with an empty cursor commits the
+// last seen EventID from the previous fetch.
+func TestCommitEmptyCursor(t *testing.T) {
+	ctx := context.Background()
 	a := newTestAdapter()
+	a.cfg.RoomID = "!room-commit-empty:example.org"
+	a.lastEventID = "!latest-event:example.org"
 
-	if err := a.Commit(context.Background(), ""); err != nil {
-		t.Fatalf("Commit() error = %v", err)
+	if err := a.Commit(ctx, ""); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	gotEventID, err := a.getCursor(ctx)
+	if err != nil {
+		t.Fatalf("getCursor: %v", err)
+	}
+	if gotEventID != a.lastEventID {
+		t.Errorf("persisted EventID = %q, want %q", gotEventID, a.lastEventID)
+	}
+}
+
+// TestCommitEventIDCursor checks that Commit with a valid EventID cursor
+// commits that specific EventID.
+func TestCommitEventIDCursor(t *testing.T) {
+	ctx := context.Background()
+	a := newTestAdapter()
+	a.cfg.RoomID = "!room-commit-eventid:example.org"
+
+	wantEventID := "!event-1:example.org"
+	a.lastEventID = "!event-2:example.org"
+	a.lastFetched = map[string]bool{
+		wantEventID:            true,
+		"!event-2:example.org": true,
+	}
+
+	if err := a.Commit(ctx, wantEventID); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	gotEventID, err := a.getCursor(ctx)
+	if err != nil {
+		t.Fatalf("getCursor: %v", err)
+	}
+	if gotEventID != wantEventID {
+		t.Errorf("persisted EventID = %q, want %q", gotEventID, wantEventID)
+	}
+}
+
+// TestCommitCursorNotFound checks that Commit returns an error when the given
+// cursor is not found in lastFetched.
+func TestCommitCursorNotFound(t *testing.T) {
+	ctx := context.Background()
+	a := newTestAdapter()
+	a.cfg.RoomID = "!room-commit-notfound:example.org"
+	a.lastFetched = map[string]bool{
+		"!event-1:example.org": true,
+	}
+
+	cursor := "!unknown-event:example.org"
+	err := a.Commit(ctx, cursor)
+	if err == nil {
+		t.Fatal("Commit expected error for unknown cursor, got nil")
+	}
+
+	wantErr := fmt.Sprintf(
+		"matrix: failed to commit: cursor %q not found in fetched events",
+		cursor,
+	)
+	if err.Error() != wantErr {
+		t.Errorf("Commit error = %q, want %q", err.Error(), wantErr)
+	}
+}
+
+// TestCommitStoreError checks that Commit propagates errors from the store.
+func TestCommitStoreError(t *testing.T) {
+	a := newTestAdapter()
+	a.cfg.RoomID = "!room-commit-store-error:example.org"
+	a.lastEventID = "!event-1:example.org"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := a.Commit(ctx, "")
+	if err == nil {
+		t.Fatal("Commit expected error for canceled context, got nil")
 	}
 }
 
