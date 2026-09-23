@@ -3,6 +3,7 @@ package matrix
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"bolte-bridge/internal/core"
 	"bolte-bridge/internal/relay"
@@ -49,8 +50,42 @@ func (a *Adapter) Fetch(ctx context.Context) ([]relay.Message, error) {
 
 // Send will translate a routed message into a Matrix event, send it to the
 // configured room, and return the EventID assigned by the homeserver.
-func (a *Adapter) Send(_ context.Context, _ relay.RoutedMessage) (string, error) {
-	return "", nil
+func (a *Adapter) Send(ctx context.Context, msg relay.RoutedMessage) (string, error) {
+	senderID, ok := ghostSenderID(msg.Message.Sender, a.cfg)
+	if !ok {
+		return "", nil
+	}
+
+	outboundMsg := OutboundEvent{
+		RoomID:      a.cfg.RoomID,
+		Sender:      senderID,
+		DisplayName: msg.Message.Sender.DisplayName,
+		ReplyTo:     msg.Message.InReplyTo,
+		Body:        msg.Message.Body,
+	}
+
+	eventID, err := a.client.Send(ctx, outboundMsg)
+	if err != nil {
+		return "", fmt.Errorf("matrix: failed to send: %w", err)
+	}
+
+	return eventID, nil
+}
+
+// ghostSenderID constructs the Matrix ghost user ID for an inbound email sender.
+// If the sender address is empty, not email, or not of the form localpart@domain,
+// it reports ok=false indicating the message should be dropped.
+func ghostSenderID(sender relay.Identity, cfg Config) (string, bool) {
+	if sender.Address.Mode != relay.MediumEmail || sender.Address.ID == "" {
+		return "", false
+	}
+
+	localpart, domain, ok := strings.Cut(sender.Address.ID, "@")
+	if !ok || localpart == "" || domain == "" || strings.Contains(domain, "@") {
+		return "", false
+	}
+
+	return fmt.Sprintf("@%s/%s/%s:%s", cfg.SenderLocalpart, domain, localpart, cfg.ServerName), true
 }
 
 // Commit will durably advance the Matrix EventID cursor.

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,6 +50,10 @@ type mockClient struct {
 
 	fetchErr       error
 	lastEventError error
+
+	sendEventID string
+	sendErr     error
+	sentEvents  []OutboundEvent
 }
 
 func (m *mockClient) LastEvent(ctx context.Context) (string, error) {
@@ -60,8 +65,9 @@ func (m *mockClient) Fetch(context.Context, string) ([]RawEvent, error) {
 	return m.eventsToFetch, m.fetchErr
 }
 
-func (m *mockClient) Send(context.Context, OutboundEvent) error {
-	return nil
+func (m *mockClient) Send(_ context.Context, msg OutboundEvent) (string, error) {
+	m.sentEvents = append(m.sentEvents, msg)
+	return m.sendEventID, m.sendErr
 }
 
 func (m *mockClient) Close(context.Context) error {
@@ -222,15 +228,222 @@ func TestFetchMessages(t *testing.T) {
 	}
 }
 
-func TestAdapterSend(t *testing.T) {
-	a := newTestAdapter()
+func TestGhostSenderID(t *testing.T) {
+	cfg := validConfig()
 
-	id, err := a.Send(context.Background(), relay.RoutedMessage{})
+	tests := []struct {
+		name   string
+		sender relay.Identity
+		wantID string
+		wantOK bool
+	}{
+		{
+			name: "standard email",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "alice@example.com"},
+			},
+			wantID: "@bolte/example.com/alice:example.org",
+			wantOK: true,
+		},
+		{
+			name: "email with subdomain",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "bob@mail.example.co.uk"},
+			},
+			wantID: "@bolte/mail.example.co.uk/bob:example.org",
+			wantOK: true,
+		},
+		{
+			name: "email with plus tag",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "user+tag@domain.com"},
+			},
+			wantID: "@bolte/domain.com/user+tag:example.org",
+			wantOK: true,
+		},
+		{
+			name: "wrong medium",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumMatrix, ID: "alice@example.com"},
+			},
+			wantOK: false,
+		},
+		{
+			name: "empty address ID",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: ""},
+			},
+			wantOK: false,
+		},
+		{
+			name: "missing at symbol",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "alice"},
+			},
+			wantOK: false,
+		},
+		{
+			name: "empty localpart",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "@example.com"},
+			},
+			wantOK: false,
+		},
+		{
+			name: "empty domain",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "alice@"},
+			},
+			wantOK: false,
+		},
+		{
+			name: "multiple at symbols",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: "alice@foo@bar.com"},
+			},
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotID, gotOK := ghostSenderID(tt.sender, cfg)
+			if gotOK != tt.wantOK {
+				t.Fatalf("ghostSenderID() ok = %v, want %v", gotOK, tt.wantOK)
+			}
+			if gotID != tt.wantID {
+				t.Errorf("ghostSenderID() = %q, want %q", gotID, tt.wantID)
+			}
+		})
+	}
+}
+
+func TestAdapterSendSuccess(t *testing.T) {
+	a := newTestAdapter()
+	mock := a.client.(*mockClient)
+	mock.sendEventID = "!sent-event:example.org"
+
+	msg := relay.RoutedMessage{
+		Message: relay.Message{
+			Sender: relay.Identity{
+				Address: relay.Address{
+					Mode: relay.MediumEmail,
+					ID:   "alice@example.com",
+				},
+				DisplayName: "Alice Wonderland",
+			},
+			InReplyTo: "$parent-event",
+			Body:      "Hello from test!",
+		},
+		To: relay.Address{
+			Mode: relay.MediumMatrix,
+			ID:   a.cfg.RoomID,
+		},
+	}
+
+	eventID, err := a.Send(context.Background(), msg)
 	if err != nil {
 		t.Fatalf("Send() error = %v", err)
 	}
-	if id != "" {
-		t.Fatalf("Send() = %q, want empty string", id)
+	if eventID != "!sent-event:example.org" {
+		t.Errorf("Send() = %q, want %q", eventID, "!sent-event:example.org")
+	}
+
+	if len(mock.sentEvents) != 1 {
+		t.Fatalf("len(sentEvents) = %d, want 1", len(mock.sentEvents))
+	}
+	sent := mock.sentEvents[0]
+	if sent.RoomID != a.cfg.RoomID {
+		t.Errorf("sent.RoomID = %q, want %q", sent.RoomID, a.cfg.RoomID)
+	}
+	wantSender := "@bolte/example.com/alice:example.org"
+	if sent.Sender != wantSender {
+		t.Errorf("sent.Sender = %q, want %q", sent.Sender, wantSender)
+	}
+	if sent.DisplayName != "Alice Wonderland" {
+		t.Errorf("sent.DisplayName = %q, want %q", sent.DisplayName, "Alice Wonderland")
+	}
+	if sent.ReplyTo != "$parent-event" {
+		t.Errorf("sent.ReplyTo = %q, want %q", sent.ReplyTo, "$parent-event")
+	}
+	if sent.Body != "Hello from test!" {
+		t.Errorf("sent.Body = %q, want %q", sent.Body, "Hello from test!")
+	}
+}
+
+func TestAdapterSendDropped(t *testing.T) {
+	tests := []struct {
+		name   string
+		sender relay.Identity
+	}{
+		{
+			name:   "empty sender ID",
+			sender: relay.Identity{Address: relay.Address{Mode: relay.MediumEmail, ID: ""}},
+		},
+		{
+			name: "wrong medium",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumMatrix, ID: "alice@example.com"},
+			},
+		},
+		{
+			name:   "malformed email without domain",
+			sender: relay.Identity{Address: relay.Address{Mode: relay.MediumEmail, ID: "alice@"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := newTestAdapter()
+			mock := a.client.(*mockClient)
+
+			msg := relay.RoutedMessage{
+				Message: relay.Message{
+					Sender: tt.sender,
+					Body:   "Dropped message",
+				},
+			}
+
+			eventID, err := a.Send(context.Background(), msg)
+			if err != nil {
+				t.Fatalf("Send() error = %v, want nil", err)
+			}
+			if eventID != "" {
+				t.Errorf("Send() = %q, want empty string", eventID)
+			}
+			if len(mock.sentEvents) != 0 {
+				t.Errorf("client.Send was called %d times, want 0", len(mock.sentEvents))
+			}
+		})
+	}
+}
+
+func TestAdapterSendClientError(t *testing.T) {
+	a := newTestAdapter()
+	mock := a.client.(*mockClient)
+	mock.sendErr = errors.New("network failure")
+
+	msg := relay.RoutedMessage{
+		Message: relay.Message{
+			Sender: relay.Identity{
+				Address: relay.Address{
+					Mode: relay.MediumEmail,
+					ID:   "alice@example.com",
+				},
+			},
+			Body: "Will fail",
+		},
+	}
+
+	eventID, err := a.Send(context.Background(), msg)
+	if err == nil {
+		t.Fatal("Send() error = nil, want error")
+	}
+	if eventID != "" {
+		t.Errorf("Send() = %q, want empty string", eventID)
+	}
+	if !strings.HasPrefix(err.Error(), "matrix: failed to send:") {
+		t.Errorf("Send() error = %q, want prefix 'matrix: failed to send:'", err.Error())
 	}
 }
 

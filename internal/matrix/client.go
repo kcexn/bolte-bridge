@@ -81,6 +81,10 @@ type OutboundEvent struct {
 	// the user as needed.
 	Sender string
 
+	// DisplayName is an optional name to display when sending messages in a
+	// room instead of a fully qualified MXID.
+	DisplayName string
+
 	// RoomID is the room to post into ("!room:server").
 	RoomID string
 
@@ -112,8 +116,8 @@ type Client interface {
 
 	// Send posts one message into msg.RoomID as msg.Sender, ensuring that user
 	// is registered and joined first. It is called once per message and reports
-	// the outcome of this message alone; it does not batch.
-	Send(ctx context.Context, msg OutboundEvent) error
+	// the event ID assigned by the homeserver; it does not batch.
+	Send(ctx context.Context, msg OutboundEvent) (string, error)
 
 	// Safely close the Matrix client.
 	Close(ctx context.Context) error

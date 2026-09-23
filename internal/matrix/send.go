@@ -8,9 +8,9 @@ import (
 	"maunium.net/go/mautrix/id"
 )
 
-func (c *matrixClient) Send(ctx context.Context, msg OutboundEvent) error {
+func (c *matrixClient) Send(ctx context.Context, msg OutboundEvent) (string, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return "", err
 	}
 
 	roomID := id.RoomID(msg.RoomID)
@@ -18,10 +18,13 @@ func (c *matrixClient) Send(ctx context.Context, msg OutboundEvent) error {
 
 	// Impersonating a ghost requires it to exist and be a room member.
 	if err := intent.EnsureRegistered(ctx); err != nil {
-		return fmt.Errorf("matrix: ensure %s registered: %w", msg.Sender, err)
+		return "", fmt.Errorf("matrix: ensure %s registered: %w", msg.Sender, err)
+	}
+	if err := intent.SetDisplayName(ctx, msg.DisplayName); err != nil {
+		return "", fmt.Errorf("matrix: set display name %s: %w", msg.DisplayName, err)
 	}
 	if err := intent.EnsureJoined(ctx, roomID); err != nil {
-		return fmt.Errorf("matrix: ensure %s joined %s: %w", msg.Sender, msg.RoomID, err)
+		return "", fmt.Errorf("matrix: ensure %s joined %s: %w", msg.Sender, msg.RoomID, err)
 	}
 
 	content := event.MessageEventContent{
@@ -30,10 +33,11 @@ func (c *matrixClient) Send(ctx context.Context, msg OutboundEvent) error {
 	}
 	content.RelatesTo = relatesTo(msg)
 
-	if _, err := intent.SendMessageEvent(ctx, roomID, event.EventMessage, &content); err != nil {
-		return fmt.Errorf("matrix: send to %s: %w", msg.RoomID, err)
+	resp, err := intent.SendMessageEvent(ctx, roomID, event.EventMessage, &content)
+	if err != nil {
+		return "", fmt.Errorf("matrix: send to %s: %w", msg.RoomID, err)
 	}
-	return nil
+	return resp.EventID.String(), nil
 }
 
 // relatesTo builds the m.relates_to for an outbound message, or nil when the
