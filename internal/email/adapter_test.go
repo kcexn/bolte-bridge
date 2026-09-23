@@ -639,6 +639,28 @@ func TestAdapterMedium(t *testing.T) {
 	}
 }
 
+// TestFetchMessagesEmpty tests the branch when client.Fetch returns an empty slice.
+func TestFetchMessagesEmpty(t *testing.T) {
+	ctx := context.Background()
+	a := &Adapter{cfg: validConfig(), msgIDToUID: make(map[string]uint32)}
+
+	a.client = &mockClient{
+		fetchFunc: func(ctx context.Context, sinceUID uint32) ([]RawMessage, error) {
+			return []RawMessage{}, nil
+		},
+		closeFunc: func(ctx context.Context) error { return nil },
+	}
+
+	messages, err := a.fetchMessages(ctx, 10)
+
+	if err != nil {
+		t.Errorf("fetchMessages returned error %v, want nil", err)
+	}
+	if messages != nil {
+		t.Errorf("fetchMessages returned messages %v, want nil", messages)
+	}
+}
+
 // TestFetchMessagesClientError tests the error branch when client.Fetch fails.
 func TestFetchMessagesClientError(t *testing.T) {
 	ctx := context.Background()

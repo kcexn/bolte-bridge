@@ -37,6 +37,10 @@ func (a *Adapter) fetchMessages(ctx context.Context, startUID uint32) ([]relay.M
 		return nil, err
 	}
 
+	if len(rawMessages) == 0 {
+		return nil, nil
+	}
+
 	messages, err := rawMessagesToRelayMessages(rawMessages)
 	if err != nil {
 		return nil, err
