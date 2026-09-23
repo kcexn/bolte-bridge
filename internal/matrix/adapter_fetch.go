@@ -39,7 +39,7 @@ func (a *Adapter) getCursor(ctx context.Context) (string, error) {
 	return eventID, err
 }
 
-// setCursor retrieves the current EventID from the store.
+// setCursor updates the current EventID in the store.
 func (a *Adapter) setCursor(ctx context.Context, eventID string) error {
 	return store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
 		return tx.Matrix().SetCursor(ctx, a.cfg.ServerName, a.cfg.RoomID, eventID)
