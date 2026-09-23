@@ -45,15 +45,17 @@ func (a *Adapter) fetchMessages(ctx context.Context, eventID string) ([]relay.Me
 		return nil, err
 	}
 
+	if len(rawEvents) == 0 {
+		a.lastFetched = nil
+		a.lastEventID = ""
+		return nil, nil
+	}
+
 	a.lastFetched = make(map[string]bool, len(rawEvents))
-	a.lastEventID = ""
+	a.lastEventID = rawEvents[len(rawEvents)-1].EventID
 
 	for _, event := range rawEvents {
 		a.lastFetched[event.EventID] = true
-	}
-
-	if len(rawEvents) > 0 {
-		a.lastEventID = rawEvents[len(rawEvents)-1].EventID
 	}
 
 	return rawEventsToRelayMessages(rawEvents), nil

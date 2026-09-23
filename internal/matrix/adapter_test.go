@@ -210,11 +210,11 @@ func TestFetchMessages(t *testing.T) {
 	}
 
 	if len(msgs) != 1 {
-		t.Fatalf("fetchMessages() returned %d messages, want 2", len(msgs))
+		t.Fatalf("fetchMessages() returned %d messages, want 1", len(msgs))
 	}
 
 	if msgs[0].MessageID != "!aaa-event:matrix.org" {
-		t.Errorf("msgs[0].MessageID = %q, want %q", msgs[0].MessageID, "$event1")
+		t.Errorf("msgs[0].MessageID = %q, want %q", msgs[0].MessageID, "!aaa-event:matrix.org")
 	}
 	if msgs[0].Body != "Hello, world!" {
 		t.Errorf("msgs[0].Body = %q, want %q", msgs[0].Body, "Hello, world!")
@@ -225,6 +225,29 @@ func TestFetchMessages(t *testing.T) {
 			msgs[0].Sender.Address.ID,
 			"@alice:matrix.org",
 		)
+	}
+}
+
+func TestFetchMessages_Empty(t *testing.T) {
+	a := newTestAdapter()
+	ctx := context.Background()
+	a.client.(*mockClient).eventsToFetch = []RawEvent{}
+
+	msgs, err := a.fetchMessages(ctx, "$cursor")
+	if err != nil {
+		t.Fatalf("fetchMessages() error = %v, want nil", err)
+	}
+
+	if len(msgs) != 0 {
+		t.Fatalf("fetchMessages() returned %d messages, want 0", len(msgs))
+	}
+
+	if a.lastEventID != "" {
+		t.Errorf("lastEventID = %q, want %q", a.lastEventID, "")
+	}
+
+	if a.lastFetched != nil {
+		t.Errorf("lastFetched = %v, want nil", a.lastFetched)
 	}
 }
 
