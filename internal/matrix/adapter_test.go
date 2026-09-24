@@ -326,11 +326,40 @@ func TestGhostSenderID(t *testing.T) {
 			},
 			wantOK: false,
 		},
+		{
+			name: "id longer than 255 characters uses hash fallback",
+			sender: relay.Identity{
+				Address: relay.Address{
+					Mode: relay.MediumEmail,
+					ID:   strings.Repeat("a", 200) + "@" + strings.Repeat("b", 100) + ".com",
+				},
+			},
+			// SHA-256 hash of the ID
+			wantID: "@bolte/0573bc1e0b1121eb1296cad34c7feff18ebd91880cd8047c9e0a5bc86b30b4ae:example.org",
+			wantOK: true,
+		},
+		{
+			name: "hash fallback still exceeds 255 characters",
+			sender: relay.Identity{
+				Address: relay.Address{
+					Mode: relay.MediumEmail,
+					ID:   "alice@example.com",
+				},
+			},
+			// Force a configuration where the server name makes the fallback > 255 chars
+			wantOK: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotID, gotOK := ghostSenderID(tt.sender, cfg)
+			tcCfg := cfg
+			if tt.name == "hash fallback still exceeds 255 characters" {
+				// Make the ServerName absurdly long so the fallback itself > 255 chars
+				tcCfg.ServerName = strings.Repeat("x", 250) + ".org"
+			}
+
+			gotID, gotOK := ghostSenderID(tt.sender, tcCfg)
 			if gotOK != tt.wantOK {
 				t.Fatalf("ghostSenderID() ok = %v, want %v", gotOK, tt.wantOK)
 			}

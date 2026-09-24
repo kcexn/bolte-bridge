@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -85,7 +86,18 @@ func ghostSenderID(sender relay.Identity, cfg Config) (string, bool) {
 		return "", false
 	}
 
-	return fmt.Sprintf("@%s/%s/%s:%s", cfg.SenderLocalpart, domain, localpart, cfg.ServerName), true
+	id := fmt.Sprintf("@%s/%s/%s:%s", cfg.SenderLocalpart, domain, localpart, cfg.ServerName)
+	if len(id) > 255 {
+		hash := sha256.Sum256([]byte(sender.Address.ID))
+		id = fmt.Sprintf("@%s/%x:%s", cfg.SenderLocalpart, hash, cfg.ServerName)
+		// The hash itself is 64 hex characters, so as long as the localpart and serverName
+		// are not absurdly long, this will fit within 255 characters.
+		if len(id) > 255 {
+			return "", false
+		}
+	}
+
+	return id, true
 }
 
 // Commit will durably advance the Matrix EventID cursor.
