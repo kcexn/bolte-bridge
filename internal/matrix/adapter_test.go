@@ -326,6 +326,15 @@ func TestGhostSenderID(t *testing.T) {
 			},
 			wantOK: false,
 		},
+		{
+			name: "id longer than 255 characters uses hash fallback",
+			sender: relay.Identity{
+				Address: relay.Address{Mode: relay.MediumEmail, ID: strings.Repeat("a", 200) + "@" + strings.Repeat("b", 100) + ".com"},
+			},
+			// SHA-256 hash of the ID
+			wantID: "@bolte/0573bc1e0b1121eb1296cad34c7feff18ebd91880cd8047c9e0a5bc86b30b4ae:example.org",
+			wantOK: true,
+		},
 	}
 
 	for _, tt := range tests {
