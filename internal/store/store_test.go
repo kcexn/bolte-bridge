@@ -87,12 +87,21 @@ func TestOpenUnknownDriver(t *testing.T) {
 // a repeat Init is a no-op that leaves the installed store unchanged.
 func TestSingleton(t *testing.T) {
 	ctx := context.Background()
+
+	// Create temp directories before registering our cleanup hook. t.Cleanup
+	// hooks are executed in LIFO order, so we need to ensure our resetForTest
+	// (which closes the DB connection) runs before t.TempDir's cleanup hook
+	// attempts to delete the directory (which would fail on Windows if the
+	// DB file is still locked).
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
 	resetForTest(ctx)
 	t.Cleanup(func() { resetForTest(ctx) })
 
 	if err := Init(
 		ctx,
-		Config{SQLite: SQLiteConfig{Path: filepath.Join(t.TempDir(), "bolte.db")}},
+		Config{SQLite: SQLiteConfig{Path: filepath.Join(dir1, "bolte.db")}},
 	); err != nil {
 		t.Fatalf("first Init: %v", err)
 	}
@@ -102,7 +111,7 @@ func TestSingleton(t *testing.T) {
 	// the first call, even when called with a different configuration.
 	if err := Init(
 		ctx,
-		Config{SQLite: SQLiteConfig{Path: filepath.Join(t.TempDir(), "other.db")}},
+		Config{SQLite: SQLiteConfig{Path: filepath.Join(dir2, "other.db")}},
 	); err != nil {
 		t.Fatalf("second Init: %v", err)
 	}
