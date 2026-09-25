@@ -119,7 +119,7 @@ func TestSingleton(t *testing.T) {
 func TestInitPropagatesOpenError(t *testing.T) {
 	ctx := context.Background()
 	resetForTest(ctx)
-	defer resetForTest(ctx)
+	t.Cleanup(func() { resetForTest(ctx) })
 
 	// An unknown driver makes Open fail, exercising the error branch in Init.
 	if err := Init(ctx, Config{Driver: Driver("postgres")}); err == nil {
@@ -135,7 +135,7 @@ func TestInitPropagatesOpenError(t *testing.T) {
 func TestClientPanicsBeforeInit(t *testing.T) {
 	ctx := context.Background()
 	resetForTest(ctx)
-	defer resetForTest(ctx)
+	t.Cleanup(func() { resetForTest(ctx) })
 
 	defer func() {
 		if recover() == nil {
