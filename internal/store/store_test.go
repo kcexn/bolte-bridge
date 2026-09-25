@@ -90,7 +90,7 @@ func TestSingleton(t *testing.T) {
 	resetForTest(ctx)
 	// Use defer rather than t.Cleanup to ensure the database file is closed
 	// before the test function exits, avoiding locked file errors on Windows
-	// during t.TempDir cleanup (see Go issue #50510).
+	// during t.TempDir cleanup (see https://github.com/golang/go/issues/50510).
 	defer resetForTest(ctx)
 
 	if err := Init(
