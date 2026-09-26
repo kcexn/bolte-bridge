@@ -88,7 +88,10 @@ func TestOpenUnknownDriver(t *testing.T) {
 func TestSingleton(t *testing.T) {
 	ctx := context.Background()
 	resetForTest(ctx)
-	t.Cleanup(func() { resetForTest(ctx) })
+	// Use defer rather than t.Cleanup to ensure the database connection is closed
+	// before t.TempDir cleanup attempts to delete the directory, which prevents
+	// file lock errors on Windows (see https://github.com/golang/go/issues/50510).
+	defer resetForTest(ctx)
 
 	if err := Init(
 		ctx,
