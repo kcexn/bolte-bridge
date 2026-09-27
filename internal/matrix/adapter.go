@@ -57,6 +57,13 @@ func (a *Adapter) Send(ctx context.Context, msg relay.RoutedMessage) (string, er
 		return "", nil
 	}
 
+	err := store.Client().WithTx(ctx, func(ctx context.Context, tx store.Tx) error {
+		return tx.Matrix().SetGhostMapping(ctx, senderID, msg.Message.Sender.Address.ID)
+	})
+	if err != nil {
+		return "", fmt.Errorf("matrix: failed to persist ghost mapping: %w", err)
+	}
+
 	outboundMsg := OutboundEvent{
 		RoomID:      a.cfg.RoomID,
 		Sender:      senderID,
