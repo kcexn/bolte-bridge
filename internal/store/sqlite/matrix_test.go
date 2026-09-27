@@ -161,3 +161,81 @@ func TestMatrixSetCursorFailure(t *testing.T) {
 		)
 	}
 }
+
+func TestMatrixSetGhostMapping(t *testing.T) {
+	ctx, s := openTestStore(t)
+
+	mxid := "@bolte/alice:example.org"
+	email := "alice@example.com"
+
+	// Set a mapping
+	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
+		return tx.Matrix.SetGhostMapping(ctx, mxid, email)
+	}); err != nil {
+		t.Fatalf("SetGhostMapping: %v", err)
+	}
+
+	// Verify it was inserted.
+	var gotEmail string
+	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
+		return tx.Email.Tx.QueryRowContext(
+			ctx,
+			"SELECT email_address FROM matrix_ghost_users WHERE mxid=?",
+			mxid,
+		).Scan(&gotEmail)
+	}); err != nil {
+		t.Fatalf("Query ghost mapping: %v", err)
+	}
+	if gotEmail != email {
+		t.Errorf("Email = %q, want %q", gotEmail, email)
+	}
+
+	// Update mapping
+	newEmail := "alice.new@example.com"
+	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
+		return tx.Matrix.SetGhostMapping(ctx, mxid, newEmail)
+	}); err != nil {
+		t.Fatalf("SetGhostMapping (update): %v", err)
+	}
+
+	if err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
+		return tx.Email.Tx.QueryRowContext(
+			ctx,
+			"SELECT email_address FROM matrix_ghost_users WHERE mxid=?",
+			mxid,
+		).Scan(&gotEmail)
+	}); err != nil {
+		t.Fatalf("Query ghost mapping after update: %v", err)
+	}
+	if gotEmail != newEmail {
+		t.Errorf("Email = %q, want %q", gotEmail, newEmail)
+	}
+}
+
+func TestMatrixSetGhostMappingFailure(t *testing.T) {
+	ctx, s := openTestStore(t)
+
+	mxid := "@bolte/alice:example.org"
+	email := "alice@example.com"
+
+	// Create a cancelled context to cause ExecContext to fail.
+	cancelledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+
+	// Attempt to set a mapping with the cancelled context.
+	err := s.WithTx(ctx, func(ctx context.Context, tx *Tx) error {
+		// Use the cancelled context for SetGhostMapping instead of the transaction context.
+		return tx.Matrix.SetGhostMapping(cancelledCtx, mxid, email)
+	})
+
+	if err == nil {
+		t.Fatal("SetGhostMapping with cancelled context returned nil error, want failure")
+	}
+	if !strings.Contains(err.Error(), "set matrix ghost mapping") {
+		t.Errorf(
+			"SetGhostMapping error message = %q, want to contain %q",
+			err.Error(),
+			"set matrix ghost mapping",
+		)
+	}
+}
