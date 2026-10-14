@@ -36,3 +36,21 @@ func (t *TxMatrix) SetCursor(ctx context.Context, serverName, roomID, eventID st
 	}
 	return nil
 }
+
+func (t *TxMatrix) SetGhostMapping(ctx context.Context, mxid, email string) error {
+	_, err := t.Tx.ExecContext(
+		ctx,
+		`INSERT INTO matrix_ghost_users (mxid, email_address)
+		 VALUES (?, ?)
+		 ON CONFLICT (mxid)
+		 DO UPDATE SET
+		   email_address = excluded.email_address,
+		   updated_at = CURRENT_TIMESTAMP`,
+		mxid,
+		email,
+	)
+	if err != nil {
+		return fmt.Errorf("sqlite: set matrix ghost mapping: %w", err)
+	}
+	return nil
+}

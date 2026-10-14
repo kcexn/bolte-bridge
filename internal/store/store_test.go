@@ -87,8 +87,8 @@ func TestOpenUnknownDriver(t *testing.T) {
 // a repeat Init is a no-op that leaves the installed store unchanged.
 func TestSingleton(t *testing.T) {
 	ctx := context.Background()
-	resetForTest(ctx)
-	t.Cleanup(func() { resetForTest(ctx) })
+	ResetForTest(ctx)
+	t.Cleanup(func() { ResetForTest(ctx) })
 
 	if err := Init(
 		ctx,
@@ -115,8 +115,8 @@ func TestSingleton(t *testing.T) {
 // error and returns it, leaving no store installed for Client to hand out.
 func TestInitPropagatesOpenError(t *testing.T) {
 	ctx := context.Background()
-	resetForTest(ctx)
-	t.Cleanup(func() { resetForTest(ctx) })
+	ResetForTest(ctx)
+	t.Cleanup(func() { ResetForTest(ctx) })
 
 	// An unknown driver makes Open fail, exercising the error branch in Init.
 	if err := Init(ctx, Config{Driver: Driver("postgres")}); err == nil {
@@ -131,8 +131,8 @@ func TestInitPropagatesOpenError(t *testing.T) {
 // programmer error surfaced immediately.
 func TestClientPanicsBeforeInit(t *testing.T) {
 	ctx := context.Background()
-	resetForTest(ctx)
-	t.Cleanup(func() { resetForTest(ctx) })
+	ResetForTest(ctx)
+	t.Cleanup(func() { ResetForTest(ctx) })
 
 	defer func() {
 		if recover() == nil {

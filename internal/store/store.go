@@ -42,6 +42,8 @@ type TxMatrix interface {
 	Cursor(ctx context.Context, serverName, roomID string) (string, error)
 	// SetCursor updates the current committed EventID for the specified room.
 	SetCursor(ctx context.Context, serverName, roomID, eventID string) error
+	// SetGhostMapping stores or updates the mapping of a ghost MXID to an email address.
+	SetGhostMapping(ctx context.Context, mxid, email string) error
 }
 
 // Tx is the transactional surface of the domain repository.
@@ -117,9 +119,9 @@ func Client() Store {
 	return client
 }
 
-// resetForTest tears down the singleton so tests can install a fresh one. It is
-// unexported and intended only for use by tests in this package.
-func resetForTest(ctx context.Context) {
+// ResetForTest tears down the singleton so tests can install a fresh one. It is
+// exported for use by tests in other packages.
+func ResetForTest(ctx context.Context) {
 	if client != nil {
 		_ = client.Close(ctx)
 	}

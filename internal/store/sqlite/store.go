@@ -27,11 +27,15 @@ type Config struct {
 //go:embed schemaV1.sql
 var schemaV1 string
 
+//go:embed schemaV2.sql
+var schemaV2 string
+
 // migrations is the ordered list of schema steps. Index i is the migration that
 // advances PRAGMA user_version from i to i+1; new steps are appended and never
 // edited once released.
 var migrations = []string{
 	schemaV1,
+	schemaV2,
 }
 
 // MigrationsCount returns the number of migrations defined in this package.
